@@ -5,7 +5,7 @@ SOURCES = $(wildcard src/*.cpp)
 
 OBJS = $(addprefix $(OBJ_DIR)/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
 
-CXXFLAGS = -std=c++17 -I./include -Wall
+CXXFLAGS = -std=c++17 -I./include -Wall -O2
 
 LIBS =
 
