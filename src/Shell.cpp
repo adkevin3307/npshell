@@ -66,6 +66,8 @@ void Shell::run()
             }
 
             processes[processes.size() - 1].exec(in, out);
+
+            exit(EXIT_SUCCESS);
         }
         else {
             int status;
