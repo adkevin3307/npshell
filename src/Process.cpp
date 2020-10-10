@@ -1,22 +1,66 @@
 #include "Process.h"
 
 #include <cstring>
+#include <algorithm>
 #include <unistd.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 
 using namespace std;
 
 Process::Process()
 {
+    this->line = 0;
+    this->in = STDIN_FILENO;
+    this->out = STDOUT_FILENO;
+    this->err = STDERR_FILENO;
 }
 
 Process::~Process()
 {
 }
 
+void Process::_setenv(string target, string source)
+{
+    setenv(target.c_str(), source.c_str(), 1);
+}
+
+void Process::_printenv(string target)
+{
+    cout << getenv(target.c_str()) << '\n';
+}
+
+void Process::_exit()
+{
+    exit(EXIT_SUCCESS);
+}
+
 void Process::add(string argument)
 {
     this->command.push_back(argument);
+}
+
+bool Process::builtin()
+{
+    vector<string> builtin_function{ "setenv", "printenv", "exit" };
+
+    if (find(builtin_function.begin(), builtin_function.end(), this->command[0]) != builtin_function.end()) {
+        if (this->command[0] == "exit") {
+            this->_exit();
+        }
+        else if (this->command[0] == "setenv") {
+            if (this->command.size() < 3) cerr << "Invalid arguments" << '\n';
+            else this->_setenv(this->command[1], this->command[2]);
+        }
+        else if (this->command[0] == "printenv") {
+            if (this->command.size() < 2) cerr << "Invalid arguments" << '\n';
+            else this->_printenv(this->command[1]);
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 void Process::exec(int in, int out)

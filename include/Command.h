@@ -12,10 +12,13 @@ class Command {
 private:
     regex process_regex;
     regex argument_regex;
-    vector<Process> processes;
+    vector<string> _commands;
     vector<string> _histories;
+    vector<Process> processes;
 
     string trim(string s);
+    void parse_process(string buffer);
+    void parse_argument();
 
 public:
     Command();

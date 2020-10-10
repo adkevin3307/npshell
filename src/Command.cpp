@@ -33,25 +33,31 @@ string Command::trim(string s)
     return s;
 }
 
-vector<Process> Command::parse(string buffer)
+void Command::parse_process(string buffer)
 {
     smatch string_match;
-    vector<string> commands;
 
-    this->processes.clear();
+    this->_commands.clear();
     buffer = this->trim(buffer);
 
     while (regex_search(buffer, string_match, this->process_regex)) {
         string sub_string = this->trim(string_match[0]);
 
-        commands.push_back(sub_string);
+        this->_commands.push_back(sub_string);
         this->_histories.push_back(sub_string);
 
         buffer = string_match.suffix().str();
         if (this->trim(buffer).length() == 0) break;
     }
+}
 
-    for (auto command : commands) {
+void Command::parse_argument()
+{
+    smatch string_match;
+
+    this->processes.clear();
+
+    for (auto command : this->_commands) {
         Process process;
 
         string s;
@@ -69,10 +75,14 @@ vector<Process> Command::parse(string buffer)
         //     if (this->trim(command).length() == 0) break;
         // }
 
-        cout << process;
-
         this->processes.push_back(process);
     }
+}
+
+vector<Process> Command::parse(string buffer)
+{
+    this->parse_process(buffer);
+    this->parse_argument();
 
     return this->processes;
 }

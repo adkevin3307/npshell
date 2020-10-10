@@ -28,7 +28,9 @@ void Shell::run()
         if (!getline(cin, buffer)) break;
 
         vector<Process> processes = command.parse(buffer);
+
         if (processes.empty()) continue;
+        else if (processes[0].builtin()) continue;
 
         pid_t pid, wpid;
 
