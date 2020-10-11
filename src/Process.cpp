@@ -28,6 +28,11 @@ Process::IOManagement::~IOManagement()
 {
 }
 
+void Process::_cd(string target)
+{
+    chdir(target.c_str());
+}
+
 void Process::_setenv(string target, string source)
 {
     setenv(target.c_str(), source.c_str(), 1);
@@ -131,23 +136,35 @@ int Process::line(Constant::IOTARGET target)
 
 bool Process::builtin()
 {
-    vector<string> builtin_function{ "setenv", "printenv", "exit" };
+    if (this->command[0] == "exit") {
+        this->_exit();
 
-    if (find(builtin_function.begin(), builtin_function.end(), this->command[0]) != builtin_function.end()) {
-        if (this->command[0] == "exit") {
-            this->_exit();
+        return true;
+    }
+    else if (this->command[0] == "cd") {
+        if (this->command.size() < 2) {
+            this->command.push_back(getenv("HOME"));
         }
-        else if (this->command[0] == "setenv") {
-            if (this->command.size() < 3)
-                cerr << "Invalid arguments" << '\n';
-            else
-                this->_setenv(this->command[1], this->command[2]);
+        this->_cd(this->command[1]);
+
+        return true;
+    }
+    else if (this->command[0] == "setenv") {
+        if (this->command.size() < 3) {
+            cerr << "Invalid arguments" << '\n';
         }
-        else if (this->command[0] == "printenv") {
-            if (this->command.size() < 2)
-                cerr << "Invalid arguments" << '\n';
-            else
-                this->_printenv(this->command[1]);
+        else {
+            this->_setenv(this->command[1], this->command[2]);
+        }
+
+        return true;
+    }
+    else if (this->command[0] == "printenv") {
+        if (this->command.size() < 2) {
+            cerr << "Invalid arguments" << '\n';
+        }
+        else {
+            this->_printenv(this->command[1]);
         }
 
         return true;

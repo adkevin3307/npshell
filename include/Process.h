@@ -22,6 +22,7 @@ private:
 
     vector<string> command;
 
+    void _cd(string target);
     void _setenv(string target, string source);
     void _printenv(string target);
     void _exit();
