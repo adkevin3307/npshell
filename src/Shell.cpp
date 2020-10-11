@@ -1,8 +1,8 @@
 #include "Shell.h"
 
 #include <iostream>
-#include <sys/wait.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #include "Command.h"
 
@@ -64,10 +64,18 @@ void Shell::get_pipe(int& in, int& out, int fd[], Process last_process)
             exit(EXIT_FAILURE);
         }
 
-        out = fd[1];
+        HeapElement element(last_process.line(Constant::IOTARGET::OUT), fd);
+        vector<HeapElement>::iterator it = find(this->process_heap.begin(), this->process_heap.end(), element);
 
-        this->process_heap.push_back(HeapElement(last_process.line(Constant::IOTARGET::OUT), fd));
-        push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+        if (it != this->process_heap.end()) {
+            out = it->fd[1];
+        }
+        else {
+            out = fd[1];
+
+            this->process_heap.push_back(HeapElement(last_process.line(Constant::IOTARGET::OUT), fd));
+            push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+        }
     }
 }
 
@@ -138,4 +146,9 @@ bool operator<(const HeapElement& a, const HeapElement& b)
 bool operator>(const HeapElement& a, const HeapElement& b)
 {
     return a.line > b.line;
+}
+
+bool operator==(const HeapElement& a, const HeapElement& b)
+{
+    return a.line == b.line;
 }

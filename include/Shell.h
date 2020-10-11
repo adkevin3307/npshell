@@ -19,6 +19,7 @@ public:
 
     friend bool operator<(const HeapElement& a, const HeapElement& b);
     friend bool operator>(const HeapElement& a, const HeapElement& b);
+    friend bool operator==(const HeapElement& a, const HeapElement& b);
 };
 
 class Shell {
