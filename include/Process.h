@@ -36,6 +36,9 @@ public:
     void set(Constant::IOTARGET target, int line);
     void set(Constant::IOTARGET target, string file);
 
+    Constant::IO type(Constant::IOTARGET target);
+    int line(Constant::IOTARGET target);
+
     bool builtin();
     void add(string argument);
     void exec(int in, int out, bool enable_fork = true);
