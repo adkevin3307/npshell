@@ -10,13 +10,13 @@ using namespace std;
 
 Shell::Shell()
 {
-    // Process env;
+    Process env;
 
-    // env.add("setenv");
-    // env.add("PATH");
-    // env.add("bin:.");
+    env.add("setenv");
+    env.add("PATH");
+    env.add("bin:.");
 
-    // env.builtin();
+    env.builtin();
 
     make_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
 }

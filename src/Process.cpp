@@ -200,6 +200,10 @@ void Process::exec(int in, int out, bool enable_fork)
     }
 
     if (!enable_fork) {
+        if (this->err.type == Constant::IO::PIPE) {
+            dup2(out, STDERR_FILENO);
+        }
+
         if (in != STDIN_FILENO) {
             dup2(in, STDIN_FILENO);
         }
@@ -219,6 +223,10 @@ void Process::exec(int in, int out, bool enable_fork)
             cerr << "Failed to create child" << '\n';
         }
         else if (pid == 0) {
+            if (this->err.type == Constant::IO::PIPE) {
+                dup2(out, STDERR_FILENO);
+            }
+
             if (in != STDIN_FILENO) {
                 dup2(in, STDIN_FILENO);
                 close(in);
