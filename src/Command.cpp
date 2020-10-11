@@ -1,7 +1,8 @@
 #include "Command.h"
 
 #include <iostream>
-#include <sstream>
+
+#include "constant.h"
 
 using namespace std;
 
@@ -23,11 +24,12 @@ string Command::trim(string s)
         return isspace(ch);
     });
 
+    s.erase(s.begin(), first_not_space);
+
     auto last_not_space = find_if_not(s.rbegin(), s.rend(), [](int ch) {
         return isspace(ch);
     });
 
-    s.erase(s.begin(), first_not_space);
     s.erase(last_not_space.base(), s.end());
 
     return s;
@@ -46,8 +48,8 @@ void Command::parse_process(string buffer)
         this->_commands.push_back(sub_string);
         this->_histories.push_back(sub_string);
 
-        buffer = string_match.suffix().str();
-        if (this->trim(buffer).length() == 0) break;
+        buffer = this->trim(string_match.suffix().str());
+        if (buffer.length() == 0) break;
     }
 }
 
@@ -60,20 +62,33 @@ void Command::parse_argument()
     for (auto command : this->_commands) {
         Process process;
 
-        string s;
-        stringstream ss(command);
+        while (regex_search(command, string_match, this->argument_regex)) {
+            if (string_match[1].length() > 0) { // |\d+, !\d+, |
+                if (string_match[2].length() > 0) { // |\d+, !\d+
+                    int line = stoi(string_match[2]);
 
-        while (ss >> s) {
-            if (s[0] != '|' && s[0] != '!') {
-                process.add(s);
+                    process.set(Constant::IOTARGET::OUT, Constant::IO::PIPE);
+                    process.set(Constant::IOTARGET::OUT, line);
+                    if (string_match[1] == '!') {
+                        process.set(Constant::IOTARGET::ERR, Constant::IO::PIPE);
+                        process.set(Constant::IOTARGET::ERR, line);
+                    }
+                }
+                else { // |
+                    process.set(Constant::IOTARGET::OUT, Constant::IO::PIPE);
+                }
             }
+            else if (string_match[3].length() > 0) {
+                process.set(Constant::IOTARGET::OUT, Constant::IO::FILE);
+                process.set(Constant::IOTARGET::OUT, string_match[4]);
+            }
+            else {
+                process.add(string_match[4]);
+            }
+
+            command = this->trim(string_match.suffix().str());
+            if (command.length() == 0) break;
         }
-
-        // while (regex_search(command, string_match, this->argument_regex)) {
-
-        //     command = string_match.suffix().str();
-        //     if (this->trim(command).length() == 0) break;
-        // }
 
         this->processes.push_back(process);
     }

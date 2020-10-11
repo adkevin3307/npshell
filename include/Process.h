@@ -4,25 +4,41 @@
 #include <vector>
 #include <iostream>
 
+#include "constant.h"
+
 using namespace std;
 
 class Process {
 private:
-    int line;
-    int in, out, err;
+    class IOManagement {
+    public:
+        Constant::IO type;
+        int line;
+        string file;
+
+        IOManagement();
+        ~IOManagement();
+    } in, out, err;
+
     vector<string> command;
 
     void _setenv(string target, string source);
     void _printenv(string target);
     void _exit();
 
+    void exec_check();
+
 public:
     Process();
     ~Process();
 
-    void add(string argument);
+    void set(Constant::IOTARGET target, Constant::IO type);
+    void set(Constant::IOTARGET target, int line);
+    void set(Constant::IOTARGET target, string file);
+
     bool builtin();
-    void exec(int in, int out);
+    void add(string argument);
+    void exec(int in, int out, bool enable_fork = true);
 
     friend ostream& operator<<(ostream& os, Process& process);
 };

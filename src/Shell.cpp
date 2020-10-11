@@ -11,6 +11,13 @@ using namespace std;
 
 Shell::Shell()
 {
+    Process env;
+
+    env.add("setenv");
+    env.add("PATH");
+    env.add("bin:.");
+
+    env.builtin();
 }
 
 Shell::~Shell()
@@ -67,9 +74,7 @@ void Shell::run()
                 dup2(out, STDOUT_FILENO);
             }
 
-            processes[processes.size() - 1].exec(in, out);
-
-            exit(EXIT_SUCCESS);
+            processes[processes.size() - 1].exec(in, out, false);
         }
         else {
             int status;
