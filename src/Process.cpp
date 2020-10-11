@@ -35,7 +35,9 @@ void Process::_setenv(string target, string source)
 
 void Process::_printenv(string target)
 {
-    cout << getenv(target.c_str()) << '\n';
+    if (getenv(target.c_str())) {
+        cout << getenv(target.c_str()) << '\n';
+    }
 }
 
 void Process::_exit()
@@ -99,6 +101,34 @@ void Process::set(Constant::IOTARGET target, string file)
     }
 }
 
+Constant::IO Process::type(Constant::IOTARGET target)
+{
+    switch (target) {
+        case Constant::IOTARGET::IN:
+            return this->in.type;
+        case Constant::IOTARGET::OUT:
+            return this->out.type;
+        case Constant::IOTARGET::ERR:
+            return this->err.type;
+        default:
+            return Constant::IO::STANDARD;
+    }
+}
+
+int Process::line(Constant::IOTARGET target)
+{
+    switch (target) {
+        case Constant::IOTARGET::IN:
+            return this->in.line;
+        case Constant::IOTARGET::OUT:
+            return this->out.line;
+        case Constant::IOTARGET::ERR:
+            return this->err.line;
+        default:
+            return 0;
+    }
+}
+
 bool Process::builtin()
 {
     vector<string> builtin_function{ "setenv", "printenv", "exit" };
@@ -144,6 +174,10 @@ void Process::exec_check()
 
 void Process::exec(int in, int out, bool enable_fork)
 {
+    if (this->in.type == Constant::IO::FILE) {
+        in = open(this->in.file.c_str(), O_RDONLY);
+    }
+
     if (this->out.type == Constant::IO::FILE) {
         out = open(this->out.file.c_str(), O_TRUNC | O_CREAT | O_WRONLY, 0644);
     }
