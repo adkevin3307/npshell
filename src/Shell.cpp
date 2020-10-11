@@ -5,23 +5,70 @@
 #include <unistd.h>
 
 #include "Command.h"
-#include "Process.h"
 
 using namespace std;
 
 Shell::Shell()
 {
-    Process env;
+    // Process env;
 
-    env.add("setenv");
-    env.add("PATH");
-    env.add("bin:.");
+    // env.add("setenv");
+    // env.add("PATH");
+    // env.add("bin:.");
 
-    env.builtin();
+    // env.builtin();
+
+    make_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
 }
 
 Shell::~Shell()
 {
+}
+
+HeapElement::HeapElement(int line, int fd[])
+{
+    this->line = line;
+
+    this->fd[0] = fd[0];
+    this->fd[1] = fd[1];
+}
+
+HeapElement::~HeapElement()
+{
+}
+
+void Shell::next_line()
+{
+    for (size_t i = 0; i < this->process_heap.size(); i++) {
+        this->process_heap[i].line -= 1;
+    }
+}
+
+void Shell::get_pipe(int& in, int& out, int fd[], Process last_process)
+{
+    in = STDIN_FILENO;
+    out = STDOUT_FILENO;
+
+    while (this->process_heap.size() != 0 && this->process_heap.front().line == 0) {
+        close(this->process_heap.front().fd[1]);
+        in = this->process_heap.front().fd[0];
+
+        pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+        this->process_heap.pop_back();
+    }
+
+    if (last_process.type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
+        if (pipe(fd) < 0) {
+            cerr << "Pipe cannot be initialized" << '\n';
+
+            exit(EXIT_FAILURE);
+        }
+
+        out = fd[1];
+
+        this->process_heap.push_back(HeapElement(last_process.line(Constant::IOTARGET::OUT), fd));
+        push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+    }
 }
 
 void Shell::run()
@@ -36,8 +83,18 @@ void Shell::run()
 
         vector<Process> processes = command.parse(buffer);
 
-        if (processes.empty()) continue;
-        else if (processes[0].builtin()) continue;
+        if (processes.empty()) {
+            continue;
+        }
+
+        this->next_line();
+
+        int in, out, fd[2];
+        get_pipe(in, out, fd, processes[processes.size() - 1]);
+
+        if (processes[0].builtin()) {
+            continue;
+        }
 
         pid_t pid, wpid;
 
@@ -47,10 +104,6 @@ void Shell::run()
             cerr << "Failed to create child" << '\n';
         }
         else if (pid == 0) {
-            int in, out, fd[2];
-
-            in = STDIN_FILENO;
-
             for (size_t i = 0; i < processes.size() - 1; i++) {
                 if (pipe(fd) < 0) {
                     cerr << "Pipe cannot be initialized" << '\n';
@@ -64,16 +117,6 @@ void Shell::run()
                 in = fd[0];
             }
 
-            out = STDOUT_FILENO;
-
-            if (in != STDIN_FILENO) {
-                dup2(in, STDIN_FILENO);
-            }
-
-            if (out != STDOUT_FILENO) {
-                dup2(out, STDOUT_FILENO);
-            }
-
             processes[processes.size() - 1].exec(in, out, false);
         }
         else {
@@ -85,4 +128,14 @@ void Shell::run()
             }
         }
     }
+}
+
+bool operator<(const HeapElement& a, const HeapElement& b)
+{
+    return a.line < b.line;
+}
+
+bool operator>(const HeapElement& a, const HeapElement& b)
+{
+    return a.line > b.line;
 }
