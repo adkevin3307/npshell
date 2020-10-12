@@ -39,6 +39,17 @@ Shell::HeapElement::~HeapElement()
 {
 }
 
+void Shell::_wait(pid_t pid)
+{
+    pid_t wpid;
+
+    while (true) {
+        wpid = waitpid(pid, NULL, WNOHANG);
+
+        if (wpid == pid) break;
+    }
+}
+
 void Shell::next_line()
 {
     for (size_t i = 0; i < this->process_heap.size(); i++) {
@@ -51,14 +62,6 @@ void Shell::get_pipe(int& in, int& out, int fd[], Process last_process)
     in = STDIN_FILENO;
     out = STDOUT_FILENO;
 
-    if (this->process_heap.size() != 0 && this->process_heap.front().line == 0) {
-        close(this->process_heap.front().fd[1]);
-        in = this->process_heap.front().fd[0];
-
-        pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
-        this->process_heap.pop_back();
-    }
-
     if (last_process.type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
         if (pipe(fd) < 0) {
             cerr << "Pipe cannot be initialized" << '\n';
@@ -69,15 +72,18 @@ void Shell::get_pipe(int& in, int& out, int fd[], Process last_process)
         HeapElement element(last_process.line(Constant::IOTARGET::OUT), fd);
         vector<HeapElement>::iterator it = find(this->process_heap.begin(), this->process_heap.end(), element);
 
-        if (it != this->process_heap.end()) {
-            out = it->fd[1];
-        }
-        else {
-            out = fd[1];
+        out = (it != this->process_heap.end() ? it->fd[1] : fd[1]);
 
-            this->process_heap.push_back(HeapElement(last_process.line(Constant::IOTARGET::OUT), fd));
-            push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+        if (it == this->process_heap.end()) {
+            this->process_heap.push_back(element);
         }
+    }
+
+    if (this->process_heap.size() != 0 && this->process_heap.front().line == 0) {
+        close(this->process_heap.front().fd[1]);
+        in = this->process_heap.front().fd[0];
+
+        pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
     }
 }
 
@@ -98,13 +104,11 @@ void Shell::run()
         this->next_line();
 
         int in, out, fd[2];
-        get_pipe(in, out, fd, processes[processes.size() - 1]);
+        get_pipe(in, out, fd, processes.back());
 
         if (processes[0].builtin()) continue;
 
-        pid_t pid, wpid;
-
-        pid = fork();
+        pid_t pid = fork();
 
         if (pid == -1) {
             cerr << "Failed to create child" << '\n';
@@ -123,14 +127,23 @@ void Shell::run()
                 in = fd[0];
             }
 
-            processes[processes.size() - 1].exec(in, out, false);
+            processes.back().exec(in, out, false);
         }
         else {
-            int status;
-            while (true) {
-                wpid = waitpid(pid, &status, WNOHANG);
+            if (!this->process_heap.empty() && this->process_heap.back().line == 0) {
+                for (auto pid : this->process_heap.back().pids) {
+                    this->_wait(pid);
+                }
 
-                if (wpid == pid) break;
+                this->process_heap.pop_back();
+            }
+
+            if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
+                this->process_heap.back().pids.push_back(pid);
+                push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+            }
+            else {
+                this->_wait(pid);
             }
         }
     }

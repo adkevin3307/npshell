@@ -215,9 +215,7 @@ void Process::exec(int in, int out, bool enable_fork)
         this->exec_check();
     }
     else {
-        pid_t pid, wpid;
-
-        pid = fork();
+        pid_t pid = fork();
 
         if (pid == -1) {
             cerr << "Failed to create child" << '\n';
@@ -237,14 +235,6 @@ void Process::exec(int in, int out, bool enable_fork)
             }
 
             this->exec_check();
-        }
-        else {
-            int status;
-            while (true) {
-                wpid = waitpid(pid, &status, WNOHANG);
-
-                if (wpid == pid) break;
-            }
         }
     }
 }

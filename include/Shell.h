@@ -12,6 +12,7 @@ private:
     private:
         int line;
         int fd[2];
+        vector<pid_t> pids;
 
     public:
         HeapElement(int line, int fd[]);
@@ -37,6 +38,7 @@ private:
 
     vector<HeapElement> process_heap;
 
+    void _wait(pid_t pid);
     void next_line();
     void get_pipe(int& in, int& out, int fd[], Process last_process);
 
