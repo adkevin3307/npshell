@@ -23,9 +23,11 @@ Shell::Shell()
 
 Shell::~Shell()
 {
+    this->process_heap.clear();
+    this->process_heap.shrink_to_fit();
 }
 
-HeapElement::HeapElement(int line, int fd[])
+Shell::HeapElement::HeapElement(int line, int fd[])
 {
     this->line = line;
 
@@ -33,7 +35,7 @@ HeapElement::HeapElement(int line, int fd[])
     this->fd[1] = fd[1];
 }
 
-HeapElement::~HeapElement()
+Shell::HeapElement::~HeapElement()
 {
 }
 
@@ -49,7 +51,7 @@ void Shell::get_pipe(int& in, int& out, int fd[], Process last_process)
     in = STDIN_FILENO;
     out = STDOUT_FILENO;
 
-    while (this->process_heap.size() != 0 && this->process_heap.front().line == 0) {
+    if (this->process_heap.size() != 0 && this->process_heap.front().line == 0) {
         close(this->process_heap.front().fd[1]);
         in = this->process_heap.front().fd[0];
 
@@ -91,18 +93,14 @@ void Shell::run()
 
         vector<Process> processes = command.parse(buffer);
 
-        if (processes.empty()) {
-            continue;
-        }
+        if (processes.empty()) continue;
 
         this->next_line();
 
         int in, out, fd[2];
         get_pipe(in, out, fd, processes[processes.size() - 1]);
 
-        if (processes[0].builtin()) {
-            continue;
-        }
+        if (processes[0].builtin()) continue;
 
         pid_t pid, wpid;
 
@@ -136,19 +134,4 @@ void Shell::run()
             }
         }
     }
-}
-
-bool operator<(const HeapElement& a, const HeapElement& b)
-{
-    return a.line < b.line;
-}
-
-bool operator>(const HeapElement& a, const HeapElement& b)
-{
-    return a.line > b.line;
-}
-
-bool operator==(const HeapElement& a, const HeapElement& b)
-{
-    return a.line == b.line;
 }

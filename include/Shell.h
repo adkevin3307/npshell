@@ -6,24 +6,35 @@
 
 using namespace std;
 
-class HeapElement {
-private:
-    int line;
-    int fd[2];
-
-public:
-    HeapElement(int line, int fd[]);
-    ~HeapElement();
-
-    friend class Shell;
-
-    friend bool operator<(const HeapElement& a, const HeapElement& b);
-    friend bool operator>(const HeapElement& a, const HeapElement& b);
-    friend bool operator==(const HeapElement& a, const HeapElement& b);
-};
-
 class Shell {
 private:
+    class HeapElement {
+    private:
+        int line;
+        int fd[2];
+
+    public:
+        HeapElement(int line, int fd[]);
+        ~HeapElement();
+
+        friend class Shell;
+
+        friend bool operator<(const HeapElement& a, const HeapElement& b)
+        {
+            return a.line < b.line;
+        }
+
+        friend bool operator>(const HeapElement& a, const HeapElement& b)
+        {
+            return a.line > b.line;
+        }
+
+        friend bool operator==(const HeapElement& a, const HeapElement& b)
+        {
+            return a.line == b.line;
+        }
+    };
+
     vector<HeapElement> process_heap;
 
     void next_line();
