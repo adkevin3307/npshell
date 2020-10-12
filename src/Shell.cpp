@@ -27,12 +27,9 @@ Shell::~Shell()
     this->process_heap.shrink_to_fit();
 }
 
-Shell::HeapElement::HeapElement(int line, int fd[])
+Shell::HeapElement::HeapElement(int line)
 {
     this->line = line;
-
-    this->fd[0] = fd[0];
-    this->fd[1] = fd[1];
 }
 
 Shell::HeapElement::~HeapElement()
@@ -57,24 +54,32 @@ void Shell::next_line()
     }
 }
 
-void Shell::get_pipe(int& in, int& out, int fd[], Process last_process)
+void Shell::get_pipe(int& in, int& out, Process last_process)
 {
     in = STDIN_FILENO;
     out = STDOUT_FILENO;
 
     if (last_process.type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
-        if (pipe(fd) < 0) {
-            cerr << "Pipe cannot be initialized" << '\n';
-
-            exit(EXIT_FAILURE);
-        }
-
-        HeapElement element(last_process.line(Constant::IOTARGET::OUT), fd);
+        HeapElement element(last_process.line(Constant::IOTARGET::OUT));
         vector<HeapElement>::iterator it = find(this->process_heap.begin(), this->process_heap.end(), element);
 
-        out = (it != this->process_heap.end() ? it->fd[1] : fd[1]);
+        if (it != this->process_heap.end()) {
+            out = it->fd[1];
+        }
+        else {
+            int fd[2];
 
-        if (it == this->process_heap.end()) {
+            if (pipe(fd) < 0) {
+                cerr << "Pipe cannot be initialized" << '\n';
+
+                exit(EXIT_FAILURE);
+            }
+
+            out = fd[1];
+
+            element.fd[0] = fd[0];
+            element.fd[1] = fd[1];
+
             this->process_heap.push_back(element);
         }
     }
@@ -103,8 +108,8 @@ void Shell::run()
 
         this->next_line();
 
-        int in, out, fd[2];
-        get_pipe(in, out, fd, processes.back());
+        int in, out;
+        get_pipe(in, out, processes.back());
 
         if (processes[0].builtin()) continue;
 
@@ -114,6 +119,8 @@ void Shell::run()
             cerr << "Failed to create child" << '\n';
         }
         else if (pid == 0) {
+            int fd[2];
+
             for (size_t i = 0; i < processes.size() - 1; i++) {
                 if (pipe(fd) < 0) {
                     cerr << "Pipe cannot be initialized" << '\n';
@@ -123,8 +130,12 @@ void Shell::run()
 
                 processes[i].exec(in, fd[1]);
 
+                close(in);
+
+                dup2(fd[0], in);
+
+                close(fd[0]);
                 close(fd[1]);
-                in = fd[0];
             }
 
             processes.back().exec(in, out, false);
@@ -141,6 +152,8 @@ void Shell::run()
             if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
                 this->process_heap.back().pids.push_back(pid);
                 push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+
+                usleep(5000);
             }
             else {
                 this->_wait(pid);

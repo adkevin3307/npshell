@@ -15,7 +15,7 @@ private:
         vector<pid_t> pids;
 
     public:
-        HeapElement(int line, int fd[]);
+        HeapElement(int line);
         ~HeapElement();
 
         friend class Shell;
@@ -40,7 +40,7 @@ private:
 
     void _wait(pid_t pid);
     void next_line();
-    void get_pipe(int& in, int& out, int fd[], Process last_process);
+    void get_pipe(int& in, int& out, Process last_process);
 
 public:
     Shell();
