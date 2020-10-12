@@ -248,13 +248,3 @@ void Process::exec(int in, int out, bool enable_fork)
         }
     }
 }
-
-ostream& operator<<(ostream& os, Process& process)
-{
-    os << "Process: ";
-    for (size_t i = 0; i < process.command.size(); i++) {
-        os << process.command[i] << (i == process.command.size() - 1 ? '\n' : ' ');
-    }
-
-    return os;
-}

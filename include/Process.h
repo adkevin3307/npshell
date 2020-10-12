@@ -43,6 +43,4 @@ public:
     bool builtin();
     void add(string argument);
     void exec(int in, int out, bool enable_fork = true);
-
-    friend ostream& operator<<(ostream& os, Process& process);
 };
