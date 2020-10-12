@@ -189,7 +189,7 @@ void Process::exec_check()
     }
 }
 
-void Process::exec(int in, int out, bool enable_fork)
+pid_t Process::exec(int in, int out, bool enable_fork)
 {
     if (this->in.type == Constant::IO::FILE) {
         in = open(this->in.file.c_str(), O_RDONLY);
@@ -236,5 +236,10 @@ void Process::exec(int in, int out, bool enable_fork)
 
             this->exec_check();
         }
+        else {
+            return pid;
+        }
     }
+
+    return -1;
 }

@@ -38,12 +38,15 @@ Shell::HeapElement::~HeapElement()
 
 void Shell::_wait(pid_t pid)
 {
-    pid_t wpid;
+    if (pid == -1) waitpid(-1, NULL, 0);
+    else {
+        pid_t wpid;
 
-    while (true) {
-        wpid = waitpid(pid, NULL, WNOHANG);
+        while (true) {
+            wpid = waitpid(pid, NULL, WNOHANG);
 
-        if (wpid == pid) break;
+            if (wpid == pid) break;
+        }
     }
 }
 
@@ -120,6 +123,7 @@ void Shell::run()
         }
         else if (pid == 0) {
             int fd[2];
+            vector<pid_t> cpids;
 
             for (size_t i = 0; i < processes.size() - 1; i++) {
                 if (pipe(fd) < 0) {
@@ -128,7 +132,8 @@ void Shell::run()
                     exit(EXIT_FAILURE);
                 }
 
-                processes[i].exec(in, fd[1]);
+                pid_t cpid = processes[i].exec(in, fd[1]);
+                if (cpid != -1) cpids.push_back(cpid);
 
                 close(in);
 
@@ -136,6 +141,10 @@ void Shell::run()
 
                 close(fd[0]);
                 close(fd[1]);
+
+                if (cpids.size() > 256) {
+                    this->_wait(-1);
+                }
             }
 
             processes.back().exec(in, out, false);
