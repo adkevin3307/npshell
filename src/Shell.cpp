@@ -18,6 +18,7 @@ Shell::Shell()
 
     env.builtin();
 
+    this->max_child_amount = sysconf(_SC_CHILD_MAX);
     make_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
 }
 
@@ -123,7 +124,7 @@ void Shell::run()
         }
         else if (pid == 0) {
             int fd[2];
-            int cpid_amount = 0, max_cpid_amount = 64;
+            long cpid_amount = 0, max_cpid_amount = 64;
 
             for (size_t i = 0; i < processes.size() - 1; i++, cpid_amount++) {
                 if (pipe(fd) < 0) {
@@ -142,11 +143,11 @@ void Shell::run()
                 close(fd[1]);
 
                 if (cpid_amount > max_cpid_amount) {
-                    for (auto j = 0; j < (int)(max_cpid_amount / 2); j++, cpid_amount--) {
+                    for (long j = 0; j < (long)(max_cpid_amount / 2); j++, cpid_amount--) {
                         this->_wait(-1);
                     }
 
-                    if (max_cpid_amount < 256) max_cpid_amount <<= 2;
+                    if (max_cpid_amount < (long)(this->max_child_amount / 2)) max_cpid_amount <<= 2;
                 }
             }
 

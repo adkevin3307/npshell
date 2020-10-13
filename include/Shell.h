@@ -36,6 +36,7 @@ private:
         }
     };
 
+    long max_child_amount;
     vector<HeapElement> process_heap;
 
     void _wait(pid_t pid);
