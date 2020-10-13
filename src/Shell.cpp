@@ -39,15 +39,12 @@ Shell::HeapElement::~HeapElement()
 
 void Shell::_wait(pid_t pid)
 {
-    if (pid == -1) waitpid(-1, NULL, 0);
-    else {
-        pid_t wpid;
+    pid_t wpid;
 
-        while (true) {
-            wpid = waitpid(pid, NULL, WNOHANG);
+    while (true) {
+        wpid = waitpid(pid, NULL, WNOHANG);
 
-            if (wpid == pid) break;
-        }
+        if (wpid == pid) break;
     }
 }
 
@@ -165,8 +162,6 @@ void Shell::run()
             if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
                 this->process_heap.back().pids.push_back(pid);
                 push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
-
-                usleep(5000);
             }
             else {
                 this->_wait(pid);
