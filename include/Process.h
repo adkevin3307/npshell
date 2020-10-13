@@ -42,5 +42,5 @@ public:
 
     bool builtin();
     void add(string argument);
-    pid_t exec(int in, int out, bool enable_fork = true);
+    void exec(int in, int out, bool enable_fork = true);
 };

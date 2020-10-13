@@ -123,17 +123,16 @@ void Shell::run()
         }
         else if (pid == 0) {
             int fd[2];
-            vector<pid_t> cpids;
+            int cpid_amount = 0, max_cpid_amount = 64;
 
-            for (size_t i = 0; i < processes.size() - 1; i++) {
+            for (size_t i = 0; i < processes.size() - 1; i++, cpid_amount++) {
                 if (pipe(fd) < 0) {
                     cerr << "Pipe cannot be initialized" << '\n';
 
                     exit(EXIT_FAILURE);
                 }
 
-                pid_t cpid = processes[i].exec(in, fd[1]);
-                if (cpid != -1) cpids.push_back(cpid);
+                processes[i].exec(in, fd[1]);
 
                 close(in);
 
@@ -142,8 +141,12 @@ void Shell::run()
                 close(fd[0]);
                 close(fd[1]);
 
-                if (cpids.size() > 256) {
-                    this->_wait(-1);
+                if (cpid_amount > max_cpid_amount) {
+                    for (auto j = 0; j < (int)(max_cpid_amount / 2); j++, cpid_amount--) {
+                        this->_wait(-1);
+                    }
+
+                    if (max_cpid_amount < 256) max_cpid_amount <<= 2;
                 }
             }
 
