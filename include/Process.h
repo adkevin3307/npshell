@@ -27,6 +27,7 @@ private:
     void _printenv(string target);
     void _exit();
 
+    void handle_io(int in, int out);
     void exec_check();
 
 public:

@@ -173,6 +173,22 @@ bool Process::builtin()
     return false;
 }
 
+void Process::handle_io(int in, int out)
+{
+    if (this->err.type == Constant::IO::PIPE) {
+        dup2(out, STDERR_FILENO);
+    }
+
+    if (in != STDIN_FILENO) {
+        dup2(in, STDIN_FILENO);
+        close(in);
+    }
+    if (out != STDOUT_FILENO) {
+        dup2(out, STDOUT_FILENO);
+        close(out);
+    }
+}
+
 void Process::exec_check()
 {
     char** args = new char*[this->command.size() + 1];
@@ -200,17 +216,7 @@ void Process::exec(int in, int out, bool enable_fork)
     }
 
     if (!enable_fork) {
-        if (this->err.type == Constant::IO::PIPE) {
-            dup2(out, STDERR_FILENO);
-        }
-
-        if (in != STDIN_FILENO) {
-            dup2(in, STDIN_FILENO);
-        }
-
-        if (out != STDOUT_FILENO) {
-            dup2(out, STDOUT_FILENO);
-        }
+        this->handle_io(in, out);
 
         this->exec_check();
     }
@@ -221,18 +227,7 @@ void Process::exec(int in, int out, bool enable_fork)
             cerr << "Failed to create child" << '\n';
         }
         else if (pid == 0) {
-            if (this->err.type == Constant::IO::PIPE) {
-                dup2(out, STDERR_FILENO);
-            }
-
-            if (in != STDIN_FILENO) {
-                dup2(in, STDIN_FILENO);
-                close(in);
-            }
-            if (out != STDOUT_FILENO) {
-                dup2(out, STDOUT_FILENO);
-                close(out);
-            }
+            this->handle_io(in, out);
 
             this->exec_check();
         }
