@@ -24,8 +24,28 @@ Shell::Shell()
 
 Shell::~Shell()
 {
+    for (auto element : this->process_heap) {
+        for (auto pid : element.pids) {
+            kill(pid, SIGINT);
+
+            this->_wait(pid);
+        }
+        close(element.fd[0]);
+        close(element.fd[1]);
+    }
+
     this->process_heap.clear();
     this->process_heap.shrink_to_fit();
+
+    for (auto element : this->recycle) {
+        for (auto pid : element.pids) {
+            kill(pid, SIGINT);
+
+            this->_wait(pid);
+        }
+        close(element.fd[0]);
+        close(element.fd[1]);
+    }
 
     this->recycle.clear();
     this->recycle.shrink_to_fit();
@@ -55,6 +75,10 @@ void Shell::next_line()
 {
     for (size_t i = 0; i < this->process_heap.size(); i++) {
         this->process_heap[i].line -= 1;
+    }
+
+    for (size_t i = 0; i < this->recycle.size(); i++) {
+        this->recycle[i].line = -1;
     }
 }
 
@@ -118,7 +142,9 @@ void Shell::run()
         int in, out;
         get_pipe(in, out, processes.back());
 
-        if (processes[0].builtin()) continue;
+        Constant::BUILTIN builtin_type = processes[0].builtin();
+        if (builtin_type == Constant::BUILTIN::EXIT) break;
+        if (builtin_type != Constant::BUILTIN::NONE) continue;
 
         pid_t pid = fork();
 
@@ -172,7 +198,7 @@ void Shell::run()
                 for (int j = this->recycle[i].pids.size() - 1; j >= 0; j--) {
                     pid_t pid = this->recycle[i].pids[j];
 
-                    if (io_type != Constant::IO::PIPE) {
+                    if (io_type != Constant::IO::PIPE && this->recycle[i].line == 0) {
                         kill(pid, SIGINT);
 
                         this->_wait(pid);

@@ -12,4 +12,12 @@ namespace Constant {
         PIPE,
         FILE
     };
+
+    enum BUILTIN {
+        EXIT,
+        CD,
+        SETENV,
+        PRINTENV,
+        NONE
+    };
 };

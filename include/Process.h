@@ -25,7 +25,6 @@ private:
     void _cd(string target);
     void _setenv(string target, string source);
     void _printenv(string target);
-    void _exit();
 
     void handle_io(int in, int out);
     void exec_check();
@@ -41,7 +40,7 @@ public:
     Constant::IO type(Constant::IOTARGET target);
     int line(Constant::IOTARGET target);
 
-    bool builtin();
+    Constant::BUILTIN builtin();
     void add(string argument);
     void exec(int in, int out, bool enable_fork = true);
 };

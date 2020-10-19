@@ -45,11 +45,6 @@ void Process::_printenv(string target)
     }
 }
 
-void Process::_exit()
-{
-    exit(EXIT_SUCCESS);
-}
-
 void Process::add(string argument)
 {
     this->command.push_back(argument);
@@ -134,12 +129,10 @@ int Process::line(Constant::IOTARGET target)
     }
 }
 
-bool Process::builtin()
+Constant::BUILTIN Process::builtin()
 {
     if (this->command[0] == "exit") {
-        this->_exit();
-
-        return true;
+        return Constant::BUILTIN::EXIT;
     }
     else if (this->command[0] == "cd") {
         if (this->command.size() < 2) {
@@ -147,7 +140,7 @@ bool Process::builtin()
         }
         this->_cd(this->command[1]);
 
-        return true;
+        return Constant::BUILTIN::CD;
     }
     else if (this->command[0] == "setenv") {
         if (this->command.size() < 3) {
@@ -157,7 +150,7 @@ bool Process::builtin()
             this->_setenv(this->command[1], this->command[2]);
         }
 
-        return true;
+        return Constant::BUILTIN::SETENV;
     }
     else if (this->command[0] == "printenv") {
         if (this->command.size() < 2) {
@@ -167,10 +160,10 @@ bool Process::builtin()
             this->_printenv(this->command[1]);
         }
 
-        return true;
+        return Constant::BUILTIN::PRINTENV;
     }
 
-    return false;
+    return Constant::BUILTIN::NONE;
 }
 
 void Process::handle_io(int in, int out)

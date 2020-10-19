@@ -43,6 +43,7 @@ private:
     void _wait(pid_t pid);
     void next_line();
     void get_pipe(int& in, int& out, Process last_process);
+    void clean();
 
 public:
     Shell();
