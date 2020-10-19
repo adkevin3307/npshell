@@ -158,24 +158,24 @@ void Shell::run()
         }
         else {
             pid_t wpid;
+            Constant::IO io_type = processes.back().type(Constant::IOTARGET::OUT);
 
-            if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
-                this->process_heap.back().pids.push_back(pid);
-                push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+            if (io_type != Constant::IO::PIPE) {
+                this->_wait(pid);
             }
             else {
-                this->_wait(pid);
+                this->process_heap.back().pids.push_back(pid);
+                push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
             }
 
             for (int i = this->recycle.size() - 1; i >= 0; i--) {
                 for (int j = this->recycle[i].pids.size() - 1; j >= 0; j--) {
                     pid_t pid = this->recycle[i].pids[j];
 
-                    if (processes.back().type(Constant::IOTARGET::OUT) != Constant::IO::PIPE) {
+                    if (io_type != Constant::IO::PIPE) {
                         kill(pid, SIGINT);
 
                         this->_wait(pid);
-
                         this->recycle[i].pids.pop_back();
                     }
                     else {
@@ -185,7 +185,10 @@ void Shell::run()
                     }
                 }
 
-                if (this->recycle[i].pids.size() == 0) this->recycle.erase(this->recycle.begin() + i);
+                if (this->recycle[i].pids.size() == 0) {
+                    close(this->recycle[i].fd[0]);
+                    this->recycle.erase(this->recycle.begin() + i);
+                }
             }
         }
     }
