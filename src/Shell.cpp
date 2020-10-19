@@ -20,6 +20,7 @@ Shell::Shell()
 
     this->max_child_amount = sysconf(_SC_CHILD_MAX);
     make_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+    make_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
 }
 
 Shell::~Shell()
@@ -37,7 +38,7 @@ Shell::~Shell()
     this->process_heap.clear();
     this->process_heap.shrink_to_fit();
 
-    for (auto element : this->recycle) {
+    for (auto element : this->recycle_heap) {
         for (auto pid : element.pids) {
             kill(pid, SIGINT);
 
@@ -47,8 +48,8 @@ Shell::~Shell()
         close(element.fd[1]);
     }
 
-    this->recycle.clear();
-    this->recycle.shrink_to_fit();
+    this->recycle_heap.clear();
+    this->recycle_heap.shrink_to_fit();
 }
 
 Shell::HeapElement::HeapElement(int line)
@@ -77,8 +78,8 @@ void Shell::next_line()
         this->process_heap[i].line -= 1;
     }
 
-    for (size_t i = 0; i < this->recycle.size(); i++) {
-        this->recycle[i].line = -1;
+    for (size_t i = 0; i < this->recycle_heap.size(); i++) {
+        this->recycle_heap[i].line -= 1;
     }
 }
 
@@ -86,6 +87,18 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
 {
     in = STDIN_FILENO;
     out = STDOUT_FILENO;
+
+    if (!this->process_heap.empty() && this->process_heap.front().line == 0) {
+        close(this->process_heap.front().fd[1]);
+        in = this->process_heap.front().fd[0];
+
+        pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+
+        this->recycle_heap.push_back(this->process_heap.back());
+        push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+
+        this->process_heap.pop_back();
+    }
 
     if (last_process.type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
         HeapElement element(last_process.line(Constant::IOTARGET::OUT));
@@ -110,16 +123,13 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
 
             this->process_heap.push_back(element);
         }
-    }
 
-    if (this->process_heap.size() != 0 && this->process_heap.front().line == 0) {
-        close(this->process_heap.front().fd[1]);
-        in = this->process_heap.front().fd[0];
+        while (!this->recycle_heap.empty() && this->recycle_heap.front().line == 0) {
+            pop_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
 
-        pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
-
-        this->recycle.push_back(this->process_heap.back());
-        this->process_heap.pop_back();
+            this->recycle_heap.back().line = last_process.line(Constant::IOTARGET::OUT);
+            push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+        }
     }
 }
 
@@ -188,34 +198,38 @@ void Shell::run()
 
             if (io_type != Constant::IO::PIPE) {
                 this->_wait(pid);
+
+                while (!this->recycle_heap.empty() && this->recycle_heap.front().line == 0) {
+                    for (auto pid : this->recycle_heap.front().pids) {
+                        kill(pid, SIGINT);
+
+                        this->_wait(pid);
+                    }
+
+                    pop_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+                    this->recycle_heap.pop_back();
+                }
             }
             else {
                 this->process_heap.back().pids.push_back(pid);
                 push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
             }
 
-            for (int i = this->recycle.size() - 1; i >= 0; i--) {
-                for (int j = this->recycle[i].pids.size() - 1; j >= 0; j--) {
-                    pid_t pid = this->recycle[i].pids[j];
+            // TODO maintain heap
+            for (int i = this->recycle_heap.size() - 1; i >= 0; i--) {
+                for (int j = this->recycle_heap[i].pids.size() - 1; j >= 0; j--) {
+                    wpid = waitpid(this->recycle_heap[i].pids[j], NULL, WNOHANG);
 
-                    if (io_type != Constant::IO::PIPE && this->recycle[i].line == 0) {
-                        kill(pid, SIGINT);
-
-                        this->_wait(pid);
-                        this->recycle[i].pids.pop_back();
-                    }
-                    else {
-                        wpid = waitpid(pid, NULL, WNOHANG);
-
-                        if (wpid == pid) this->recycle[i].pids.erase(this->recycle[i].pids.begin() + j);
-                    }
+                    if (wpid == this->recycle_heap[i].pids[j]) this->recycle_heap[i].pids.erase(this->recycle_heap[i].pids.begin() + j);
                 }
 
-                if (this->recycle[i].pids.size() == 0) {
-                    close(this->recycle[i].fd[0]);
-                    this->recycle.erase(this->recycle.begin() + i);
+                if (this->recycle_heap[i].pids.size() == 0) {
+                    close(this->recycle_heap[i].fd[0]);
+                    this->recycle_heap.erase(this->recycle_heap.begin() + i);
                 }
             }
+
+            if (!this->recycle_heap.empty()) push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
         }
     }
 }
