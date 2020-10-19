@@ -14,7 +14,7 @@ Shell::Shell()
 
     env.add("setenv");
     env.add("PATH");
-    env.add("bin:.");
+    env.add("/usr/bin:bin:.");
 
     env.builtin();
 
@@ -26,6 +26,9 @@ Shell::~Shell()
 {
     this->process_heap.clear();
     this->process_heap.shrink_to_fit();
+
+    this->recycle.clear();
+    this->recycle.shrink_to_fit();
 }
 
 Shell::HeapElement::HeapElement(int line)
@@ -90,6 +93,9 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
         in = this->process_heap.front().fd[0];
 
         pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+
+        this->recycle.push_back(this->process_heap.back());
+        this->process_heap.pop_back();
     }
 }
 
@@ -151,14 +157,7 @@ void Shell::run()
             processes.back().exec(in, out, false);
         }
         else {
-            if (!this->process_heap.empty() && this->process_heap.back().line == 0) {
-                for (auto pid : this->process_heap.back().pids) {
-                    this->_wait(pid);
-                }
-
-                close(this->process_heap.back().fd[0]);
-                this->process_heap.pop_back();
-            }
+            pid_t wpid;
 
             if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
                 this->process_heap.back().pids.push_back(pid);
@@ -166,6 +165,27 @@ void Shell::run()
             }
             else {
                 this->_wait(pid);
+            }
+
+            for (int i = this->recycle.size() - 1; i >= 0; i--) {
+                for (int j = this->recycle[i].pids.size() - 1; j >= 0; j--) {
+                    pid_t pid = this->recycle[i].pids[j];
+
+                    if (processes.back().type(Constant::IOTARGET::OUT) != Constant::IO::PIPE) {
+                        kill(pid, SIGINT);
+
+                        this->_wait(pid);
+
+                        this->recycle[i].pids.pop_back();
+                    }
+                    else {
+                        wpid = waitpid(pid, NULL, WNOHANG);
+
+                        if (wpid == pid) this->recycle[i].pids.erase(this->recycle[i].pids.begin() + j);
+                    }
+                }
+
+                if (this->recycle[i].pids.size() == 0) this->recycle.erase(this->recycle.begin() + i);
             }
         }
     }

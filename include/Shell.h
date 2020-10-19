@@ -38,6 +38,7 @@ private:
 
     long max_child_amount;
     vector<HeapElement> process_heap;
+    vector<HeapElement> recycle;
 
     void _wait(pid_t pid);
     void next_line();
