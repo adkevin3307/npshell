@@ -121,7 +121,7 @@ void Shell::run()
         }
         else if (pid == 0) {
             int fd[2];
-            long cpid_amount = 0, max_cpid_amount = 64;
+            long cpid_amount = 0, max_cpid_amount = min(64l, this->max_child_amount);
 
             for (size_t i = 0; i < processes.size() - 1; i++, cpid_amount++) {
                 if (pipe(fd) < 0) {
@@ -156,6 +156,7 @@ void Shell::run()
                     this->_wait(pid);
                 }
 
+                close(this->process_heap.back().fd[0]);
                 this->process_heap.pop_back();
             }
 
