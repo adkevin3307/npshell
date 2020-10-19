@@ -14,7 +14,7 @@ Shell::Shell()
 
     env.add("setenv");
     env.add("PATH");
-    env.add("/usr/bin:bin:.");
+    env.add("bin:.");
 
     env.builtin();
 
