@@ -92,11 +92,10 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
         close(this->process_heap.front().fd[1]);
         in = this->process_heap.front().fd[0];
 
-        pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
-
-        this->recycle_heap.push_back(this->process_heap.back());
+        this->recycle_heap.push_back(this->process_heap.front());
         push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
 
+        pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
         this->process_heap.pop_back();
     }
 
@@ -215,7 +214,6 @@ void Shell::run()
                 push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
             }
 
-            // TODO maintain heap
             for (int i = this->recycle_heap.size() - 1; i >= 0; i--) {
                 for (int j = this->recycle_heap[i].pids.size() - 1; j >= 0; j--) {
                     wpid = waitpid(this->recycle_heap[i].pids[j], NULL, WNOHANG);
@@ -229,7 +227,9 @@ void Shell::run()
                 }
             }
 
-            if (!this->recycle_heap.empty()) push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+            if (!this->recycle_heap.empty()) {
+                push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+            }
         }
     }
 }
