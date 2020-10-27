@@ -20,6 +20,7 @@ private:
         ~IOManagement();
     } in, out, err;
 
+    char** args;
     vector<string> command;
 
     void _cd(string target);

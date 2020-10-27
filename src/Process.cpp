@@ -11,10 +11,14 @@ using namespace std;
 
 Process::Process()
 {
+    this->args = NULL;
 }
 
 Process::~Process()
 {
+    if (this->args != NULL) {
+        delete[] this->args;
+    }
 }
 
 Process::IOManagement::IOManagement()
@@ -184,14 +188,14 @@ void Process::handle_io(int in, int out)
 
 void Process::exec_check()
 {
-    char** args = new char*[this->command.size() + 1];
+    this->args = new char*[this->command.size() + 1];
 
     for (size_t i = 0; i < this->command.size(); i++) {
-        args[i] = strdup(this->command[i].c_str());
+        this->args[i] = strdup(this->command[i].c_str());
     }
-    args[this->command.size()] = NULL;
+    this->args[this->command.size()] = NULL;
 
-    if (execvp(this->command[0].c_str(), args) < 0) {
+    if (execvp(this->command[0].c_str(), this->args) < 0) {
         cerr << "Unknown command: [" << this->command[0] << "]." << '\n';
 
         exit(EXIT_FAILURE);
