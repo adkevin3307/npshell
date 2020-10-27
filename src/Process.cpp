@@ -18,7 +18,9 @@ Process::~Process()
 {
     if (this->args != NULL) {
         for (size_t i = 0; i < this->command.size() + 1; i++) {
-            free(this->args[i]);
+            if (this->args[i] != NULL) {
+                free(this->args[i]);
+            }
         }
 
         delete[] this->args;
