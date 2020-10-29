@@ -132,16 +132,15 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
     }
 }
 
-void Shell::run()
+void Shell::run(int times)
 {
-    string buffer;
-    Command command;
-
-    while (true) {
+    while (times) {
         cout << "% ";
 
+        string buffer;
         if (!getline(cin, buffer)) break;
 
+        Command command;
         vector<Process> processes = command.parse(buffer);
 
         if (processes.empty()) continue;
@@ -231,5 +230,7 @@ void Shell::run()
                 push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
             }
         }
+
+        if (times != -1) times -= 1;
     }
 }

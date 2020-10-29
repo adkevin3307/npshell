@@ -49,5 +49,5 @@ public:
     Shell();
     ~Shell();
 
-    void run();
+    void run(int times = -1);
 };
