@@ -1,9 +1,12 @@
-EXE = npshell
+EXE = npshell np_simple
 OBJ_DIR = obj
 
-SOURCES = $(wildcard src/*.cpp)
+SOURCES = $(filter-out $(wildcard src/np*.cpp), $(wildcard src/*.cpp))
 
 OBJS = $(addprefix $(OBJ_DIR)/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
+
+OBJS_NPSHELL = $(OBJS) $(OBJ_DIR)/npshell.o
+OBJS_NP_SIMPLE = $(OBJS) $(OBJ_DIR)/np_simple.o
 
 CXXFLAGS = -std=c++17 -I./include -Wall -O2
 
@@ -18,7 +21,10 @@ all: create_object_directory $(EXE)
 create_object_directory:
 	mkdir -p $(OBJ_DIR)
 
-$(EXE): $(OBJS)
+npshell: $(OBJS_NPSHELL)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
+
+np_simple: $(OBJS_NP_SIMPLE)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
 
 clean:

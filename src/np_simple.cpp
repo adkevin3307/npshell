@@ -14,4 +14,6 @@ int main(int argc, char** argv)
 
     RemoteShell remote_shell(atoi(argv[1]));
     remote_shell.run();
+
+    return 0;
 }
