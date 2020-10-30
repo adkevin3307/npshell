@@ -49,5 +49,6 @@ public:
     Shell();
     ~Shell();
 
-    void run(int times = -1);
+    void run(string& buffer);
+    void run();
 };
