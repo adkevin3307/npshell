@@ -7,7 +7,7 @@ using namespace std;
 int main(int argc, char** argv)
 {
     if (argc != 2) {
-        cerr << "Usage: ./npshell {port}" << '\n';
+        cerr << "Usage: ./np_simple {port}" << '\n';
 
         return 0;
     }
