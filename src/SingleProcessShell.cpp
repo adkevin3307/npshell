@@ -26,6 +26,11 @@ SingleProcessShell::SingleProcessShell(int port)
     }
 
     listen(this->socket_fd, 5);
+
+    this->fds_amount = getdtablesize();
+
+    FD_ZERO(&(this->active_fds));
+    FD_SET(this->socket_fd, &(this->active_fds));
 }
 
 SingleProcessShell::~SingleProcessShell()
@@ -33,81 +38,109 @@ SingleProcessShell::~SingleProcessShell()
     close(this->socket_fd);
 }
 
-void SingleProcessShell::welcome_message(int fd, struct sockaddr_in client)
+void SingleProcessShell::welcome_message(int fd)
 {
-    string address = inet_ntoa(client.sin_addr);
-    string port = to_string(ntohs(client.sin_port));
-
     string message =
         "***************************************\n"
         "** Welcome to the information server **\n"
         "***************************************\n";
 
-    string info = "*** User ’(no name)’ entered from " + address + ":" + port + ". ***\n";
-
     write(fd, message.c_str(), message.length());
-    write(fd, info.c_str(), info.length());
-    write(fd, "% ", 2);
+}
+
+bool SingleProcessShell::getline(int fd, string& s)
+{
+    while (true) {
+        char c;
+        int count = read(fd, &c, 1);
+
+        if (count != 1) return false;
+        else {
+            if (c == '\n') break;
+            else if (c == 4) return false; // EOF
+
+            s += c;
+        }
+    }
+
+    return true;
+}
+
+void SingleProcessShell::_login()
+{
+    if (FD_ISSET(this->socket_fd, &(this->read_fds))) {
+        struct sockaddr_in client_addr;
+        socklen_t client_len = sizeof(client_addr);
+
+        int client_socket_fd = accept(this->socket_fd, (struct sockaddr*)&client_addr, &client_len);
+
+        if (client_socket_fd < 0) {
+            cerr << "Server: accept error" << '\n';
+        }
+
+        if (this->shell_map.find(client_socket_fd) == this->shell_map.end()) {
+            this->shell_map[client_socket_fd] = Shell(client_socket_fd, client_socket_fd, client_socket_fd);
+        }
+
+        this->welcome_message(client_socket_fd);
+
+        FD_SET(client_socket_fd, &(this->active_fds));
+
+        string address = inet_ntoa(client_addr.sin_addr);
+        string port = to_string(ntohs(client_addr.sin_port));
+
+        string info = "*** User '(no name)' entered from " + address + ":" + port + ". ***\n";
+
+        this->_yell(info);
+        write(client_socket_fd, "% ", 2);
+    }
+}
+
+void SingleProcessShell::_logout(int fd)
+{
+    close(fd);
+    FD_CLR(fd, &(this->active_fds));
+
+    string s = "*** User '(no name)' left. ***\n";
+
+    this->_yell(s);
+}
+
+void SingleProcessShell::_yell(string s, int except_fd)
+{
+    for (int fd = 0; fd < this->fds_amount; fd++) {
+        if (fd != this->socket_fd && FD_ISSET(fd, &(this->active_fds))) {
+            if (except_fd != -1 && fd == except_fd) continue;
+
+            write(fd, s.c_str(), s.length());
+        }
+    }
 }
 
 void SingleProcessShell::run()
 {
-    fd_set read_fds, active_fds;
-    int fds_amount = getdtablesize();
-
-    FD_ZERO(&active_fds);
-    FD_SET(this->socket_fd, &active_fds);
-
     while (true) {
-        memcpy(&read_fds, &active_fds, sizeof(read_fds));
+        memcpy(&(this->read_fds), &(this->active_fds), sizeof(this->read_fds));
 
-        if (select(fds_amount, &read_fds, NULL, NULL, NULL) < 0) {
+        if (select(this->fds_amount, &(this->read_fds), NULL, NULL, NULL) < 0) {
             cerr << "Server: select error" << '\n';
         }
 
-        if (FD_ISSET(this->socket_fd, &read_fds)) {
-            struct sockaddr_in client_addr;
-            socklen_t client_len = sizeof(client_addr);
+        this->_login();
 
-            int client_socket_fd = accept(this->socket_fd, (struct sockaddr*)&client_addr, &client_len);
-
-            if (client_socket_fd < 0) {
-                cerr << "Server: accept error" << '\n';
-            }
-
-            if (this->shell_map.find(client_socket_fd) == this->shell_map.end()) {
-                this->shell_map[client_socket_fd] = Shell(client_socket_fd, client_socket_fd, client_socket_fd);
-            }
-
-            this->welcome_message(client_socket_fd, client_addr);
-
-            FD_SET(client_socket_fd, &active_fds);
-        }
-
-        for (int fd = 0; fd < fds_amount; fd++) {
-            if (fd != this->socket_fd && FD_ISSET(fd, &read_fds)) {
+        for (int fd = 0; fd < this->fds_amount; fd++) {
+            if (fd != this->socket_fd && FD_ISSET(fd, &(this->read_fds))) {
                 string buffer;
 
-                while (true) {
-                    char c;
-                    int count = read(fd, &c, 1);
+                if (this->getline(fd, buffer)) {
+                    if (this->shell_map[fd].run(buffer)) {
+                        write(fd, "% ", 2);
 
-                    if (count != 1) break;
-                    else {
-                        if (c == '\n') break;
-
-                        buffer += c;
+                        continue;
                     }
                 }
 
-                if (!this->shell_map[fd].run(buffer)) {
-                    close(fd);
-                    FD_CLR(fd, &active_fds);
-
-                    continue;
-                }
-
-                write(fd, "% ", 2);
+                this->_logout(fd);
             }
         }
     }
