@@ -25,6 +25,6 @@ public:
     Shell(int stdin_no = STDIN_FILENO, int stdout_no = STDOUT_FILENO, int stderr_no = STDERR_FILENO);
     ~Shell();
 
-    Constant::BUILTIN run(string& buffer);
+    void run(vector<Process>& processes);
     void run();
 };

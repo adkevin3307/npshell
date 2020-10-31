@@ -9,7 +9,7 @@ using namespace std;
 Command::Command()
 {
     this->process_regex = regex(R"([^|!]+((\|\d+|!\d+)\s*$|\||$))");
-    this->argument_regex = regex(R"((\||!)(\d+)?|(<)?(>)?\s*(\S+))");
+    this->argument_regex = regex(R"((\||!|<|>)(\d+)?|\s*(\S+))");
 }
 
 Command::~Command()
@@ -65,30 +65,44 @@ void Command::parse_argument()
         while (regex_search(command, string_match, this->argument_regex)) {
             if (string_match[1].length() > 0) {
                 if (string_match[2].length() > 0) {
-                    int line = stoi(string_match[2]);
+                    int n = stoi(string_match[2]);
 
-                    process.set(Constant::IOTARGET::OUT, Constant::IO::PIPE);
-                    process.set(Constant::IOTARGET::OUT, line);
+                    if (string_match[1] == '|') {
+                        process.set(Constant::IOTARGET::OUT, Constant::IO::N_PIPE);
+                        process.set(Constant::IOTARGET::OUT, n);
+                    }
+                    else if (string_match[1] == '!') {
+                        process.set(Constant::IOTARGET::OUT, Constant::IO::N_PIPE);
+                        process.set(Constant::IOTARGET::OUT, n);
 
-                    if (string_match[1] == '!') {
-                        process.set(Constant::IOTARGET::ERR, Constant::IO::PIPE);
-                        process.set(Constant::IOTARGET::ERR, line);
+                        process.set(Constant::IOTARGET::ERR, Constant::IO::N_PIPE);
+                        process.set(Constant::IOTARGET::ERR, n);
+                    }
+                    else if (string_match[1] == '<') {
+                        process.set(Constant::IOTARGET::IN, Constant::IO::U_PIPE);
+                        process.set(Constant::IOTARGET::IN, n);
+                    }
+                    else if (string_match[1] == '>') {
+                        process.set(Constant::IOTARGET::OUT, Constant::IO::U_PIPE);
+                        process.set(Constant::IOTARGET::OUT, n);
                     }
                 }
                 else {
-                    process.set(Constant::IOTARGET::OUT, Constant::IO::PIPE);
+                    if (string_match[1] == '|') {
+                        process.set(Constant::IOTARGET::OUT, Constant::IO::N_PIPE);
+                    }
+                    else if (string_match[1] == '<') {
+                        process.set(Constant::IOTARGET::IN, Constant::IO::FILE);
+                        process.set(Constant::IOTARGET::IN, string_match[3]);
+                    }
+                    else if (string_match[1] == '>') {
+                        process.set(Constant::IOTARGET::OUT, Constant::IO::FILE);
+                        process.set(Constant::IOTARGET::OUT, string_match[3]);
+                    }
                 }
             }
-            else if (string_match[3].length() > 0) {
-                process.set(Constant::IOTARGET::IN, Constant::IO::FILE);
-                process.set(Constant::IOTARGET::IN, string_match[5]);
-            }
-            else if (string_match[4].length() > 0) {
-                process.set(Constant::IOTARGET::OUT, Constant::IO::FILE);
-                process.set(Constant::IOTARGET::OUT, string_match[5]);
-            }
             else {
-                process.add(string_match[5]);
+                process.add(string_match[3]);
             }
 
             command = this->trim(string_match.suffix().str());

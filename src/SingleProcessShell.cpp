@@ -217,7 +217,12 @@ void SingleProcessShell::run()
                     continue;
                 }
 
-                Constant::BUILTIN builtin_type = this->shell_map[fd].shell.run(buffer);
+                Command command;
+                vector<Process> processes = command.parse(buffer);
+
+                if (processes.empty()) continue;
+
+                Constant::BUILTIN builtin_type = processes[0].builtin();
 
                 if (builtin_type == Constant::BUILTIN::EXIT) {
                     this->_logout(fd);
@@ -228,7 +233,6 @@ void SingleProcessShell::run()
                     this->_who(fd);
                 }
                 else if (builtin_type == Constant::BUILTIN::TELL) {
-                    Command command;
                     Process process = command.parse(buffer)[0];
 
                     int id = atoi(process[1].c_str());
@@ -261,8 +265,11 @@ void SingleProcessShell::run()
 
                     this->_name(fd, process[1]);
                 }
+                else if (builtin_type == Constant::BUILTIN::NONE) {
+                    this->shell_map[fd].shell.run(processes);
 
-                write(fd, "% ", 2);
+                    write(fd, "% ", 2);
+                }
             }
         }
     }

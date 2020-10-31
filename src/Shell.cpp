@@ -93,8 +93,8 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
         this->process_heap.pop_back();
     }
 
-    if (last_process.type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
-        PipeElement element(last_process.line(Constant::IOTARGET::OUT));
+    if (last_process.type(Constant::IOTARGET::OUT) == Constant::IO::N_PIPE) {
+        PipeElement element(last_process.n(Constant::IOTARGET::OUT));
         vector<PipeElement>::iterator it = find(this->process_heap.begin(), this->process_heap.end(), element);
 
         if (it != this->process_heap.end()) {
@@ -120,28 +120,18 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
         while (!this->recycle_heap.empty() && this->recycle_heap.front().n == 0) {
             pop_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
 
-            this->recycle_heap.back().n = last_process.line(Constant::IOTARGET::OUT);
+            this->recycle_heap.back().n = last_process.n(Constant::IOTARGET::OUT);
             push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
         }
     }
 }
 
-Constant::BUILTIN Shell::run(string& buffer)
+void Shell::run(vector<Process>& processes)
 {
-    Command command;
-    vector<Process> processes = command.parse(buffer);
-
-    if (processes.empty()) return Constant::BUILTIN::NONE;
-
     this->next_line();
 
     int in, out;
     get_pipe(in, out, processes.back());
-
-    Constant::BUILTIN builtin_type = processes[0].builtin();
-
-    if (builtin_type == Constant::BUILTIN::EXIT) return Constant::BUILTIN::EXIT;
-    if (builtin_type != Constant::BUILTIN::NONE) return builtin_type;
 
     pid_t pid = fork();
 
@@ -187,7 +177,7 @@ Constant::BUILTIN Shell::run(string& buffer)
         pid_t wpid;
         Constant::IO io_type = processes.back().type(Constant::IOTARGET::OUT);
 
-        if (io_type != Constant::IO::PIPE) {
+        if (io_type != Constant::IO::N_PIPE) {
             this->_wait(pid);
 
             while (!this->recycle_heap.empty() && this->recycle_heap.front().n == 0) {
@@ -223,8 +213,6 @@ Constant::BUILTIN Shell::run(string& buffer)
             push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
         }
     }
-
-    return Constant::BUILTIN::NONE;
 }
 
 void Shell::run()
@@ -235,6 +223,16 @@ void Shell::run()
         string buffer;
         if (!getline(cin, buffer)) break;
 
-        if (this->run(buffer) == Constant::BUILTIN::EXIT) break;
+        Command command;
+        vector<Process> processes = command.parse(buffer);
+
+        if (processes.empty()) continue;
+
+        Constant::BUILTIN builtin_type = processes[0].builtin();
+
+        if (builtin_type == Constant::BUILTIN::EXIT) break;
+        if (builtin_type != Constant::BUILTIN::NONE) continue;
+
+        this->run(processes);
     }
 }
