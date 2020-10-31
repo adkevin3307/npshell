@@ -40,6 +40,31 @@ SingleProcessShell::~SingleProcessShell()
     close(this->socket_fd);
 }
 
+SingleProcessShell::ClientShell::ClientShell()
+{
+}
+
+SingleProcessShell::ClientShell::~ClientShell()
+{
+}
+
+SingleProcessShell::ClientInformation::ClientInformation()
+{
+    this->name = "(no name)";
+}
+
+SingleProcessShell::ClientInformation::ClientInformation(int fd, string ip, string port)
+    : SingleProcessShell::ClientInformation::ClientInformation()
+{
+    this->fd = fd;
+    this->ip = ip;
+    this->port = port;
+}
+
+SingleProcessShell::ClientInformation::~ClientInformation()
+{
+}
+
 void SingleProcessShell::welcome_message(int fd)
 {
     string message =
@@ -81,20 +106,28 @@ void SingleProcessShell::_login()
         }
 
         if (this->shell_map.find(client_socket_fd) == this->shell_map.end()) {
-            this->shell_map[client_socket_fd] = Shell(client_socket_fd, client_socket_fd, client_socket_fd);
+            int id = 0;
+            for (auto it = this->client_map.begin(); it != this->client_map.end(); it++, id++) {
+                if (it->first != id) break;
+            }
+
+            this->shell_map[client_socket_fd].id = id;
+            this->shell_map[client_socket_fd].shell = Shell(client_socket_fd, client_socket_fd, client_socket_fd);
+
+            string ip = inet_ntoa(client_addr.sin_addr);
+            string port = to_string(ntohs(client_addr.sin_port));
+
+            this->client_map[id] = ClientInformation(client_socket_fd, ip, port);
+
+            FD_SET(client_socket_fd, &(this->active_fds));
+
+            this->welcome_message(client_socket_fd);
+
+            string info = "*** User '(no name)' entered from " + ip + ":" + port + ". ***\n";
+
+            this->_yell(info);
+            write(client_socket_fd, "% ", 2);
         }
-
-        this->welcome_message(client_socket_fd);
-
-        FD_SET(client_socket_fd, &(this->active_fds));
-
-        string address = inet_ntoa(client_addr.sin_addr);
-        string port = to_string(ntohs(client_addr.sin_port));
-
-        string info = "*** User '(no name)' entered from " + address + ":" + port + ". ***\n";
-
-        this->_yell(info);
-        write(client_socket_fd, "% ", 2);
     }
 }
 
@@ -103,20 +136,61 @@ void SingleProcessShell::_logout(int fd)
     close(fd);
     FD_CLR(fd, &(this->active_fds));
 
-    string s = "*** User '(no name)' left. ***\n";
+    string name = this->client_map[this->shell_map[fd].id].name;
 
+    string s = "*** User '" + name + "' left. ***\n";
     this->_yell(s);
+
+    this->client_map.erase(this->shell_map[fd].id);
+    this->shell_map.erase(fd);
 }
 
-void SingleProcessShell::_yell(string s, int except_fd)
+void SingleProcessShell::_who(int fd)
+{
+    string title = "<ID>\t<nickname>\t<IP:port>\t<indicate me>\n";
+    write(fd, title.c_str(), title.length());
+
+    string client;
+    for (auto it = this->client_map.begin(); it != this->client_map.end(); it++) {
+        client +=
+            to_string(it->first) + "\t" +
+            it->second.name + "\t" +
+            it->second.ip + ":" + it->second.port + "\t";
+        client += ((it->first == this->shell_map[fd].id) ? "<-me" : "");
+        client += "\n";
+    }
+
+    write(fd, client.c_str(), client.length());
+}
+
+void SingleProcessShell::_yell(string s)
 {
     for (int fd = 0; fd < this->fds_amount; fd++) {
         if (fd != this->socket_fd && FD_ISSET(fd, &(this->active_fds))) {
-            if (except_fd != -1 && fd == except_fd) continue;
-
             write(fd, s.c_str(), s.length());
         }
     }
+}
+
+void SingleProcessShell::_name(int fd, string name)
+{
+    for (auto it = this->client_map.begin(); it != this->client_map.end(); it++) {
+        if (fd == it->second.fd) continue;
+
+        if (name == it->second.name) {
+            string s = "*** User '" + name + "' already exists. ***\n";
+            write(fd, s.c_str(), s.length());
+
+            return;
+        }
+    }
+
+    this->client_map[this->shell_map[fd].id].name = name;
+
+    ClientInformation client_information = this->client_map[this->shell_map[fd].id];
+    string s = "*** User from " + client_information.ip + ":" + client_information.port + " is named '" + name + "'. ***\n";
+
+    this->_yell(s);
 }
 
 void SingleProcessShell::run()
@@ -140,7 +214,7 @@ void SingleProcessShell::run()
                     continue;
                 }
 
-                Constant::BUILTIN builtin_type = this->shell_map[fd].run(buffer);
+                Constant::BUILTIN builtin_type = this->shell_map[fd].shell.run(buffer);
 
                 if (builtin_type == Constant::BUILTIN::EXIT) {
                     this->_logout(fd);
@@ -148,19 +222,33 @@ void SingleProcessShell::run()
                     continue;
                 }
                 else if (builtin_type == Constant::BUILTIN::WHO) {
-
+                    this->_who(fd);
                 }
                 else if (builtin_type == Constant::BUILTIN::TELL) {
                     Command command;
                     Process process = command.parse(buffer)[0];
 
-                    // TODO tell
+                    int id = atoi(process[1].c_str());
+
+                    int target_fd;
+                    string s;
+
+                    if (this->client_map.find(id) != this->client_map.end()) {
+                        target_fd = this->client_map[id].fd;
+                        s = "*** " + this->client_map[this->shell_map[fd].id].name + " told you ***: " + process[2] + "\n";
+                    }
+                    else {
+                        target_fd = fd;
+                        s = "*** Error: user #" + to_string(id) + " does not exist yet. ***\n";
+                    }
+
+                    write(target_fd, s.c_str(), s.length());
                 }
                 else if (builtin_type == Constant::BUILTIN::YELL) {
                     Command command;
                     Process process = command.parse(buffer)[0];
 
-                    string s = "*** (no name) yelled ***: " + process[1] + '\n';
+                    string s = "*** " + this->client_map[this->shell_map[fd].id].name + " yelled ***: " + process[1] + '\n';
 
                     this->_yell(s);
                 }
@@ -168,7 +256,7 @@ void SingleProcessShell::run()
                     Command command;
                     Process process = command.parse(buffer)[0];
 
-                    // TODO name
+                    this->_name(fd, process[1]);
                 }
 
                 write(fd, "% ", 2);
