@@ -1,15 +1,18 @@
 #include "Shell.h"
 
 #include <iostream>
-#include <unistd.h>
 #include <sys/wait.h>
 
 #include "Command.h"
 
 using namespace std;
 
-Shell::Shell()
+Shell::Shell(int stdin_no, int stdout_no, int stderr_no)
 {
+    this->stdin_no = stdin_no;
+    this->stdout_no = stdout_no;
+    this->stderr_no = stderr_no;
+
     Process env;
 
     env.add("setenv");
@@ -132,12 +135,12 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
     }
 }
 
-void Shell::run(string& buffer)
+bool Shell::run(string& buffer)
 {
     Command command;
     vector<Process> processes = command.parse(buffer);
 
-    if (processes.empty()) return;
+    if (processes.empty()) return true;
 
     this->next_line();
 
@@ -146,8 +149,8 @@ void Shell::run(string& buffer)
 
     Constant::BUILTIN builtin_type = processes[0].builtin();
 
-    if (builtin_type == Constant::BUILTIN::EXIT) exit(EXIT_SUCCESS);
-    if (builtin_type != Constant::BUILTIN::NONE) return;
+    if (builtin_type == Constant::BUILTIN::EXIT) return false;
+    if (builtin_type != Constant::BUILTIN::NONE) return true;
 
     pid_t pid = fork();
 
@@ -155,6 +158,10 @@ void Shell::run(string& buffer)
         cerr << "Failed to create child" << '\n';
     }
     else if (pid == 0) {
+        dup2(this->stdin_no, STDIN_FILENO);
+        dup2(this->stdout_no, STDOUT_FILENO);
+        dup2(this->stderr_no, STDERR_FILENO);
+
         int fd[2];
         long cpid_amount = 0, max_cpid_amount = min(64l, this->max_child_amount);
 
@@ -225,6 +232,8 @@ void Shell::run(string& buffer)
             push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
         }
     }
+
+    return true;
 }
 
 void Shell::run()
@@ -235,6 +244,6 @@ void Shell::run()
         string buffer;
         if (!getline(cin, buffer)) break;
 
-        this->run(buffer);
+        if (!this->run(buffer)) break;
     }
 }

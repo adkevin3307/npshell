@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <unistd.h>
 
 #include "Process.h"
 
@@ -36,6 +37,7 @@ private:
         }
     };
 
+    int stdin_no, stdout_no, stderr_no;
     long max_child_amount;
     vector<HeapElement> process_heap;
     vector<HeapElement> recycle_heap;
@@ -46,9 +48,9 @@ private:
     void clean();
 
 public:
-    Shell();
+    Shell(int stdin_no = STDIN_FILENO, int stdout_no = STDOUT_FILENO, int stderr_no = STDERR_FILENO);
     ~Shell();
 
-    void run(string& buffer);
+    bool run(string& buffer);
     void run();
 };
