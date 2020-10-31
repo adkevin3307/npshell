@@ -139,6 +139,11 @@ int Process::line(Constant::IOTARGET target)
     }
 }
 
+string Process::operator[](int index)
+{
+    return this->command[index];
+}
+
 Constant::BUILTIN Process::builtin()
 {
     if (this->command[0] == "exit") {
@@ -171,6 +176,36 @@ Constant::BUILTIN Process::builtin()
         }
 
         return Constant::BUILTIN::PRINTENV;
+    }
+    else if (this->command[0] == "who") {
+        return Constant::BUILTIN::WHO;
+    }
+    else if (this->command[0] == "tell") {
+        if (this->command.size() < 3) {
+            cerr << "Invalid arguments" << '\n';
+
+            return Constant::BUILTIN::NONE;
+        }
+
+        return Constant::BUILTIN::TELL;
+    }
+    else if (this->command[0] == "yell") {
+        if (this->command.size() < 2) {
+            cerr << "Invalid arguments" << '\n';
+
+            return Constant::BUILTIN::NONE;
+        }
+
+        return Constant::BUILTIN::YELL;
+    }
+    else if (this->command[0] == "name") {
+        if (this->command.size() < 2) {
+            cerr << "Invalid arguments" << '\n';
+
+            return Constant::BUILTIN::NONE;
+        }
+
+        return Constant::BUILTIN::NAME;
     }
 
     return Constant::BUILTIN::NONE;

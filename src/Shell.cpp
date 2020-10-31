@@ -135,12 +135,12 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
     }
 }
 
-bool Shell::run(string& buffer)
+Constant::BUILTIN Shell::run(string& buffer)
 {
     Command command;
     vector<Process> processes = command.parse(buffer);
 
-    if (processes.empty()) return true;
+    if (processes.empty()) return Constant::BUILTIN::NONE;
 
     this->next_line();
 
@@ -149,8 +149,8 @@ bool Shell::run(string& buffer)
 
     Constant::BUILTIN builtin_type = processes[0].builtin();
 
-    if (builtin_type == Constant::BUILTIN::EXIT) return false;
-    if (builtin_type != Constant::BUILTIN::NONE) return true;
+    if (builtin_type == Constant::BUILTIN::EXIT) return Constant::BUILTIN::EXIT;
+    if (builtin_type != Constant::BUILTIN::NONE) return builtin_type;
 
     pid_t pid = fork();
 
@@ -233,7 +233,7 @@ bool Shell::run(string& buffer)
         }
     }
 
-    return true;
+    return Constant::BUILTIN::NONE;
 }
 
 void Shell::run()
@@ -244,6 +244,6 @@ void Shell::run()
         string buffer;
         if (!getline(cin, buffer)) break;
 
-        if (!this->run(buffer)) break;
+        if (this->run(buffer) == Constant::BUILTIN::EXIT) break;
     }
 }

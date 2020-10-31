@@ -18,6 +18,10 @@ namespace Constant {
         CD,
         SETENV,
         PRINTENV,
+        WHO,
+        TELL,
+        YELL,
+        NAME,
         NONE
     };
 };

@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#include "Command.h"
+
 using namespace std;
 
 SingleProcessShell::SingleProcessShell(int port)
@@ -132,15 +134,44 @@ void SingleProcessShell::run()
             if (fd != this->socket_fd && FD_ISSET(fd, &(this->read_fds))) {
                 string buffer;
 
-                if (this->getline(fd, buffer)) {
-                    if (this->shell_map[fd].run(buffer)) {
-                        write(fd, "% ", 2);
+                if (!this->getline(fd, buffer)) {
+                    this->_logout(fd);
 
-                        continue;
-                    }
+                    continue;
                 }
 
-                this->_logout(fd);
+                Constant::BUILTIN builtin_type = this->shell_map[fd].run(buffer);
+
+                if (builtin_type == Constant::BUILTIN::EXIT) {
+                    this->_logout(fd);
+
+                    continue;
+                }
+                else if (builtin_type == Constant::BUILTIN::WHO) {
+
+                }
+                else if (builtin_type == Constant::BUILTIN::TELL) {
+                    Command command;
+                    Process process = command.parse(buffer)[0];
+
+                    // TODO tell
+                }
+                else if (builtin_type == Constant::BUILTIN::YELL) {
+                    Command command;
+                    Process process = command.parse(buffer)[0];
+
+                    string s = "*** (no name) yelled ***: " + process[1] + '\n';
+
+                    this->_yell(s);
+                }
+                else if (builtin_type == Constant::BUILTIN::NAME) {
+                    Command command;
+                    Process process = command.parse(buffer)[0];
+
+                    // TODO name
+                }
+
+                write(fd, "% ", 2);
             }
         }
     }

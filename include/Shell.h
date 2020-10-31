@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "Process.h"
+#include "constant.h"
 
 using namespace std;
 
@@ -51,6 +52,6 @@ public:
     Shell(int stdin_no = STDIN_FILENO, int stdout_no = STDOUT_FILENO, int stderr_no = STDERR_FILENO);
     ~Shell();
 
-    bool run(string& buffer);
+    Constant::BUILTIN run(string& buffer);
     void run();
 };

@@ -40,6 +40,7 @@ public:
 
     Constant::IO type(Constant::IOTARGET target);
     int line(Constant::IOTARGET target);
+    string operator[](int index);
 
     Constant::BUILTIN builtin();
     void add(string argument);
