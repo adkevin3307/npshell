@@ -81,10 +81,13 @@ bool SingleProcessShell::getline(int fd, string& s)
         char c;
         int count = read(fd, &c, 1);
 
-        if (count != 1) return false;
+        if (count != 1)
+            return false;
         else {
-            if (c == '\n') break;
-            else if (c == 4) return false; // EOF
+            if (c == '\n')
+                break;
+            else if (c == 4)
+                return false;
 
             s += c;
         }

@@ -15,7 +15,7 @@ private:
     private:
         int id;
         Shell shell;
-    
+
     public:
         ClientShell();
         ~ClientShell();
@@ -28,7 +28,7 @@ private:
         int fd;
         string name, ip, port;
         PipeElement user_pipe;
-    
+
     public:
         ClientInformation();
         ClientInformation(int fd, string ip, string port);
