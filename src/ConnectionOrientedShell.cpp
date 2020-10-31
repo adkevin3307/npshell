@@ -1,4 +1,4 @@
-#include "RemoteShell.h"
+#include "ConnectionOrientedShell.h"
 
 #include <iostream>
 #include <cstring>
@@ -17,7 +17,7 @@ namespace Client {
     vector<pid_t> pids;
 };
 
-RemoteShell::RemoteShell(int port)
+ConnectionOrientedShell::ConnectionOrientedShell(int port)
 {
     signal(SIGCHLD, [](int signo) {
         pid_t wpid;
@@ -48,7 +48,7 @@ RemoteShell::RemoteShell(int port)
     listen(this->socket_fd, 5);
 }
 
-RemoteShell::~RemoteShell()
+ConnectionOrientedShell::~ConnectionOrientedShell()
 {
     close(this->socket_fd);
 
@@ -56,7 +56,7 @@ RemoteShell::~RemoteShell()
     Client::pids.shrink_to_fit();
 }
 
-void RemoteShell::run()
+void ConnectionOrientedShell::run()
 {
     while (true) {
         struct sockaddr_in client_addr;

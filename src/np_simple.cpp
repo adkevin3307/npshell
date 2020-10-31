@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "RemoteShell.h"
+#include "ConnectionOrientedShell.h"
 
 using namespace std;
 
@@ -12,8 +12,8 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    RemoteShell remote_shell(atoi(argv[1]));
-    remote_shell.run();
+    ConnectionOrientedShell connection_oriented_shell(atoi(argv[1]));
+    connection_oriented_shell.run();
 
     return 0;
 }

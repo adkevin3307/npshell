@@ -5,13 +5,13 @@
 
 using namespace std;
 
-class RemoteShell {
+class ConnectionOrientedShell {
 private:
     int socket_fd;
 
 public:
-    RemoteShell(int port);
-    ~RemoteShell();
+    ConnectionOrientedShell(int port);
+    ~ConnectionOrientedShell();
 
     void run();
 };
