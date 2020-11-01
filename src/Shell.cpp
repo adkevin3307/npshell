@@ -126,10 +126,41 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
     }
 }
 
+int Shell::get(Constant::IOTARGET target)
+{
+    switch (target) {
+        case Constant::IOTARGET::IN:
+            return this->stdin_no;
+        case Constant::IOTARGET::OUT:
+            return this->stdout_no;
+        case Constant::IOTARGET::ERR:
+            return this->stderr_no;
+        default:
+            break;
+    }
+
+    return -1;
+}
+
+void Shell::set(Constant::IOTARGET target, int fd)
+{
+    switch (target) {
+        case Constant::IOTARGET::IN:
+            this->stdin_no = fd;
+            break;
+        case Constant::IOTARGET::OUT:
+            this->stdout_no = fd;
+            break;
+        case Constant::IOTARGET::ERR:
+            this->stderr_no = fd;
+            break;
+        default:
+            break;
+    }
+}
+
 void Shell::run(vector<Process>& processes)
 {
-    this->next_line();
-
     int in, out;
     get_pipe(in, out, processes.back());
 
@@ -227,6 +258,8 @@ void Shell::run()
         vector<Process> processes = command.parse(buffer);
 
         if (processes.empty()) continue;
+
+        this->next_line();
 
         Constant::BUILTIN builtin_type = processes[0].builtin();
 

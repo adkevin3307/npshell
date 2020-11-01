@@ -27,7 +27,7 @@ private:
     private:
         int fd;
         string name, ip, port;
-        PipeElement user_pipe;
+        vector<PipeElement> user_pipes;
 
     public:
         ClientInformation();
@@ -49,6 +49,7 @@ private:
     void _who(int fd);
     void _yell(string s);
     void _name(int fd, string s);
+    Constant::BUILTIN builtin(int fd, Process process);
 
 public:
     SingleProcessShell(int port);

@@ -17,7 +17,6 @@ private:
     vector<PipeElement> recycle_heap;
 
     void _wait(pid_t pid);
-    void next_line();
     void get_pipe(int& in, int& out, Process last_process);
     void clean();
 
@@ -25,6 +24,9 @@ public:
     Shell(int stdin_no = STDIN_FILENO, int stdout_no = STDOUT_FILENO, int stderr_no = STDERR_FILENO);
     ~Shell();
 
+    void next_line();
+    int get(Constant::IOTARGET target);
+    void set(Constant::IOTARGET target, int fd);
     void run(vector<Process>& processes);
     void run();
 };
