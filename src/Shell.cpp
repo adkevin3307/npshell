@@ -1,15 +1,18 @@
 #include "Shell.h"
 
 #include <iostream>
-#include <unistd.h>
 #include <sys/wait.h>
 
 #include "Command.h"
 
 using namespace std;
 
-Shell::Shell()
+Shell::Shell(int stdin_no, int stdout_no, int stderr_no)
 {
+    this->stdin_no = stdin_no;
+    this->stdout_no = stdout_no;
+    this->stderr_no = stderr_no;
+
     Process env;
 
     env.add("setenv");
@@ -19,8 +22,8 @@ Shell::Shell()
     env.builtin();
 
     this->max_child_amount = sysconf(_SC_CHILD_MAX);
-    make_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
-    make_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+    make_heap(this->process_heap.begin(), this->process_heap.end(), greater<PipeElement>());
+    make_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
 }
 
 Shell::~Shell()
@@ -52,15 +55,6 @@ Shell::~Shell()
     this->recycle_heap.shrink_to_fit();
 }
 
-Shell::HeapElement::HeapElement(int line)
-{
-    this->line = line;
-}
-
-Shell::HeapElement::~HeapElement()
-{
-}
-
 void Shell::_wait(pid_t pid)
 {
     pid_t wpid;
@@ -75,11 +69,11 @@ void Shell::_wait(pid_t pid)
 void Shell::next_line()
 {
     for (size_t i = 0; i < this->process_heap.size(); i++) {
-        this->process_heap[i].line -= 1;
+        this->process_heap[i].n -= 1;
     }
 
     for (size_t i = 0; i < this->recycle_heap.size(); i++) {
-        this->recycle_heap[i].line -= 1;
+        this->recycle_heap[i].n -= 1;
     }
 }
 
@@ -88,20 +82,20 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
     in = STDIN_FILENO;
     out = STDOUT_FILENO;
 
-    if (!this->process_heap.empty() && this->process_heap.front().line == 0) {
+    if (!this->process_heap.empty() && this->process_heap.front().n == 0) {
         close(this->process_heap.front().fd[1]);
         in = this->process_heap.front().fd[0];
 
         this->recycle_heap.push_back(this->process_heap.front());
-        push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+        push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
 
-        pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
+        pop_heap(this->process_heap.begin(), this->process_heap.end(), greater<PipeElement>());
         this->process_heap.pop_back();
     }
 
-    if (last_process.type(Constant::IOTARGET::OUT) == Constant::IO::PIPE) {
-        HeapElement element(last_process.line(Constant::IOTARGET::OUT));
-        vector<HeapElement>::iterator it = find(this->process_heap.begin(), this->process_heap.end(), element);
+    if (last_process.type(Constant::IOTARGET::OUT) == Constant::IO::N_PIPE) {
+        PipeElement element(last_process.n(Constant::IOTARGET::OUT));
+        vector<PipeElement>::iterator it = find(this->process_heap.begin(), this->process_heap.end(), element);
 
         if (it != this->process_heap.end()) {
             out = it->fd[1];
@@ -123,31 +117,52 @@ void Shell::get_pipe(int& in, int& out, Process last_process)
             this->process_heap.push_back(element);
         }
 
-        while (!this->recycle_heap.empty() && this->recycle_heap.front().line == 0) {
-            pop_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+        while (!this->recycle_heap.empty() && this->recycle_heap.front().n == 0) {
+            pop_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
 
-            this->recycle_heap.back().line = last_process.line(Constant::IOTARGET::OUT);
-            push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+            this->recycle_heap.back().n = last_process.n(Constant::IOTARGET::OUT);
+            push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
         }
     }
 }
 
-void Shell::run(string& buffer)
+int Shell::get(Constant::IOTARGET target)
 {
-    Command command;
-    vector<Process> processes = command.parse(buffer);
+    switch (target) {
+        case Constant::IOTARGET::IN:
+            return this->stdin_no;
+        case Constant::IOTARGET::OUT:
+            return this->stdout_no;
+        case Constant::IOTARGET::ERR:
+            return this->stderr_no;
+        default:
+            break;
+    }
 
-    if (processes.empty()) return;
+    return -1;
+}
 
-    this->next_line();
+void Shell::set(Constant::IOTARGET target, int fd)
+{
+    switch (target) {
+        case Constant::IOTARGET::IN:
+            this->stdin_no = fd;
+            break;
+        case Constant::IOTARGET::OUT:
+            this->stdout_no = fd;
+            break;
+        case Constant::IOTARGET::ERR:
+            this->stderr_no = fd;
+            break;
+        default:
+            break;
+    }
+}
 
+pid_t Shell::run(vector<Process>& processes)
+{
     int in, out;
     get_pipe(in, out, processes.back());
-
-    Constant::BUILTIN builtin_type = processes[0].builtin();
-
-    if (builtin_type == Constant::BUILTIN::EXIT) exit(EXIT_SUCCESS);
-    if (builtin_type != Constant::BUILTIN::NONE) return;
 
     pid_t pid = fork();
 
@@ -155,6 +170,10 @@ void Shell::run(string& buffer)
         cerr << "Failed to create child" << '\n';
     }
     else if (pid == 0) {
+        dup2(this->stdin_no, STDIN_FILENO);
+        dup2(this->stdout_no, STDOUT_FILENO);
+        dup2(this->stderr_no, STDERR_FILENO);
+
         int fd[2];
         long cpid_amount = 0, max_cpid_amount = min(64l, this->max_child_amount);
 
@@ -189,23 +208,26 @@ void Shell::run(string& buffer)
         pid_t wpid;
         Constant::IO io_type = processes.back().type(Constant::IOTARGET::OUT);
 
-        if (io_type != Constant::IO::PIPE) {
+        if (io_type == Constant::IO::U_PIPE) {
+            return pid;
+        }
+        else if (io_type == Constant::IO::N_PIPE) {
+            this->process_heap.back().pids.push_back(pid);
+            push_heap(this->process_heap.begin(), this->process_heap.end(), greater<PipeElement>());
+        }
+        else {
             this->_wait(pid);
 
-            while (!this->recycle_heap.empty() && this->recycle_heap.front().line == 0) {
+            while (!this->recycle_heap.empty() && this->recycle_heap.front().n == 0) {
                 for (auto pid : this->recycle_heap.front().pids) {
                     kill(pid, SIGINT);
 
                     this->_wait(pid);
                 }
 
-                pop_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+                pop_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
                 this->recycle_heap.pop_back();
             }
-        }
-        else {
-            this->process_heap.back().pids.push_back(pid);
-            push_heap(this->process_heap.begin(), this->process_heap.end(), greater<HeapElement>());
         }
 
         for (int i = this->recycle_heap.size() - 1; i >= 0; i--) {
@@ -222,9 +244,11 @@ void Shell::run(string& buffer)
         }
 
         if (!this->recycle_heap.empty()) {
-            push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<HeapElement>());
+            push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
         }
     }
+
+    return -1;
 }
 
 void Shell::run()
@@ -235,6 +259,18 @@ void Shell::run()
         string buffer;
         if (!getline(cin, buffer)) break;
 
-        this->run(buffer);
+        Command command;
+        vector<Process> processes = command.parse(buffer);
+
+        if (processes.empty()) continue;
+
+        this->next_line();
+
+        Constant::BUILTIN builtin_type = processes[0].builtin();
+
+        if (builtin_type == Constant::BUILTIN::EXIT) break;
+        if (builtin_type == Constant::BUILTIN::NONE) {
+            this->run(processes);
+        }
     }
 }

@@ -13,7 +13,7 @@ private:
     class IOManagement {
     public:
         Constant::IO type;
-        int line;
+        int n;
         string file;
 
         IOManagement();
@@ -35,11 +35,12 @@ public:
     ~Process();
 
     void set(Constant::IOTARGET target, Constant::IO type);
-    void set(Constant::IOTARGET target, int line);
+    void set(Constant::IOTARGET target, int n);
     void set(Constant::IOTARGET target, string file);
 
     Constant::IO type(Constant::IOTARGET target);
-    int line(Constant::IOTARGET target);
+    int n(Constant::IOTARGET target);
+    string operator[](int index);
 
     Constant::BUILTIN builtin();
     void add(string argument);

@@ -30,7 +30,7 @@ Process::~Process()
 Process::IOManagement::IOManagement()
 {
     this->type = Constant::IO::STANDARD;
-    this->line = 0;
+    this->n = 0;
     this->file = "";
 }
 
@@ -77,17 +77,17 @@ void Process::set(Constant::IOTARGET target, Constant::IO type)
     }
 }
 
-void Process::set(Constant::IOTARGET target, int line)
+void Process::set(Constant::IOTARGET target, int n)
 {
     switch (target) {
         case Constant::IOTARGET::IN:
-            this->in.line = line;
+            this->in.n = n;
             break;
         case Constant::IOTARGET::OUT:
-            this->out.line = line;
+            this->out.n = n;
             break;
         case Constant::IOTARGET::ERR:
-            this->err.line = line;
+            this->err.n = n;
             break;
         default:
             break;
@@ -125,18 +125,23 @@ Constant::IO Process::type(Constant::IOTARGET target)
     }
 }
 
-int Process::line(Constant::IOTARGET target)
+int Process::n(Constant::IOTARGET target)
 {
     switch (target) {
         case Constant::IOTARGET::IN:
-            return this->in.line;
+            return this->in.n;
         case Constant::IOTARGET::OUT:
-            return this->out.line;
+            return this->out.n;
         case Constant::IOTARGET::ERR:
-            return this->err.line;
+            return this->err.n;
         default:
             return 0;
     }
+}
+
+string Process::operator[](int index)
+{
+    return this->command[index];
 }
 
 Constant::BUILTIN Process::builtin()
@@ -172,13 +177,43 @@ Constant::BUILTIN Process::builtin()
 
         return Constant::BUILTIN::PRINTENV;
     }
+    else if (this->command[0] == "who") {
+        return Constant::BUILTIN::WHO;
+    }
+    else if (this->command[0] == "tell") {
+        if (this->command.size() < 3) {
+            cerr << "Invalid arguments" << '\n';
+
+            return Constant::BUILTIN::NONE;
+        }
+
+        return Constant::BUILTIN::TELL;
+    }
+    else if (this->command[0] == "yell") {
+        if (this->command.size() < 2) {
+            cerr << "Invalid arguments" << '\n';
+
+            return Constant::BUILTIN::NONE;
+        }
+
+        return Constant::BUILTIN::YELL;
+    }
+    else if (this->command[0] == "name") {
+        if (this->command.size() < 2) {
+            cerr << "Invalid arguments" << '\n';
+
+            return Constant::BUILTIN::NONE;
+        }
+
+        return Constant::BUILTIN::NAME;
+    }
 
     return Constant::BUILTIN::NONE;
 }
 
 void Process::handle_io(int in, int out)
 {
-    if (this->err.type == Constant::IO::PIPE) {
+    if (this->err.type == Constant::IO::N_PIPE) {
         dup2(out, STDERR_FILENO);
     }
 
