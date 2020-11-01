@@ -16,7 +16,6 @@ private:
     vector<string> _histories;
     vector<Process> processes;
 
-    string trim(string s);
     void parse_process(string buffer);
     void parse_argument();
 
@@ -24,6 +23,7 @@ public:
     Command();
     ~Command();
 
+    string trim(string s);
     vector<Process> parse(string buffer);
     vector<string> histories();
 };
