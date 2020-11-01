@@ -27,6 +27,6 @@ public:
     void next_line();
     int get(Constant::IOTARGET target);
     void set(Constant::IOTARGET target, int fd);
-    void run(vector<Process>& processes);
+    pid_t run(vector<Process>& processes);
     void run();
 };

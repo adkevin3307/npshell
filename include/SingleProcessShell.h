@@ -50,6 +50,7 @@ private:
     void _yell(string s);
     void _name(int fd, string s);
     Constant::BUILTIN builtin(int fd, Process process);
+    bool get_pipe(int fd, int& in, int& out, int& user_pipe_index, string buffer);
 
 public:
     SingleProcessShell(int port);

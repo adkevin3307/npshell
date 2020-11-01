@@ -4,6 +4,8 @@
 #include <cstring>
 #include <sstream>
 #include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
@@ -142,18 +144,29 @@ void SingleProcessShell::_logout(int fd)
     close(fd);
     FD_CLR(fd, &(this->active_fds));
 
-    string name = this->client_map[this->shell_map[fd].id].name;
+    int id = this->shell_map[fd].id;
 
-    string s = "*** User \'" + name + "\' left. ***\n";
+    string s = "*** User \'" + this->client_map[id].name + "\' left. ***\n";
     this->_yell(s);
 
-    for (auto user_pipe : this->client_map[this->shell_map[fd].id].user_pipes) {
+    for (auto user_pipe : this->client_map[id].user_pipes) {
         close(user_pipe.fd[0]);
         close(user_pipe.fd[1]);
     }
 
-    this->client_map.erase(this->shell_map[fd].id);
     this->shell_map.erase(fd);
+    this->client_map.erase(id);
+
+    for (auto it = this->client_map.begin(); it != this->client_map.end(); it++) {
+        for (int i = it->second.user_pipes.size() - 1; i >= 0; i--) {
+            if (it->second.user_pipes[i].n == id) {
+                close(it->second.user_pipes[i].fd[0]);
+                close(it->second.user_pipes[i].fd[1]);
+
+                it->second.user_pipes.erase(it->second.user_pipes.begin() + i);
+            }
+        }
+    }
 }
 
 void SingleProcessShell::_who(int fd)
@@ -248,6 +261,118 @@ Constant::BUILTIN SingleProcessShell::builtin(int fd, Process process)
     return builtin_type;
 }
 
+bool SingleProcessShell::get_pipe(int fd, int& in, int& out, int& user_pipe_index, string buffer)
+{
+    Command command;
+    vector<Process> processes = command.parse(buffer);
+
+    bool executable = true;
+
+    if (processes.front().type(Constant::IOTARGET::IN) == Constant::IO::U_PIPE) {
+        int source_id = processes.front().n(Constant::IOTARGET::IN);
+
+        if (this->client_map.find(source_id) == this->client_map.end()) {
+            executable = false;
+
+            stringstream ss;
+            ss << "*** Error: user #" << source_id << " does not exist yet. ***" << '\n';
+
+            write(fd, ss.str().c_str(), ss.str().length());
+        }
+        else {
+            bool pipe_exist = false;
+            int id = this->shell_map[fd].id;
+
+            for (int i = this->client_map[id].user_pipes.size() - 1; i >= 0; i--) {
+                if (this->client_map[id].user_pipes[i].n == source_id) {
+                    close(this->client_map[id].user_pipes[i].fd[1]);
+                    in = this->client_map[id].user_pipes[i].fd[0];
+
+                    pipe_exist = true;
+                    user_pipe_index = i;
+
+                    break;
+                }
+            }
+
+            if (pipe_exist) {
+                stringstream ss;
+                ss << "*** " << this->client_map[source_id].name << " (#" << source_id << ") just received from "
+                   << this->client_map[id].name << " (#" << id << ") by \'" << buffer << "\' ***" << '\n';
+
+                this->_yell(ss.str());
+            }
+            else {
+                executable = false;
+
+                stringstream ss;
+                ss << "*** Error: the pipe #" << source_id << "->#" << id << " does not exist yet. ***" << '\n';
+
+                write(fd, ss.str().c_str(), ss.str().length());
+            }
+        }
+    }
+
+    if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::U_PIPE) {
+        int target_id = processes.back().n(Constant::IOTARGET::OUT);
+
+        if (this->client_map.find(target_id) == this->client_map.end()) {
+            executable = false;
+
+            stringstream ss;
+            ss << "*** Error: user #" << target_id << " does not exist yet. ***" << '\n';
+
+            write(fd, ss.str().c_str(), ss.str().length());
+        }
+        else {
+            bool pipe_exist = false;
+            int id = this->shell_map[fd].id;
+
+            for (auto user_pipe : this->client_map[target_id].user_pipes) {
+                if (user_pipe.n == id) {
+                    stringstream ss;
+                    ss << "*** Error: the pipe #" << id << "->#" << target_id << " already exists. ***" << '\n';
+
+                    write(fd, ss.str().c_str(), ss.str().length());
+
+                    pipe_exist = true;
+                    break;
+                }
+            }
+
+            if (pipe_exist) {
+                executable = false;
+            }
+            else {
+                int pipe_fd[2];
+
+                if (pipe(pipe_fd) < 0) {
+                    cerr << "Pipe cannot be initialized" << '\n';
+
+                    exit(EXIT_FAILURE);
+                }
+
+                out = pipe_fd[1];
+
+                PipeElement pipe_element;
+                pipe_element.fd[0] = pipe_fd[0];
+                pipe_element.fd[1] = pipe_fd[1];
+                pipe_element.n = this->shell_map[fd].id;
+
+                this->client_map[target_id].user_pipes.push_back(pipe_element);
+
+                stringstream ss;
+                ss << "*** " << this->client_map[id].name << " (#" << id << ") just piped \'"
+                   << buffer << "\' to " << this->client_map[target_id].name << " (#" << target_id << ") ***" << '\n';
+
+                this->_yell(ss.str());
+            }
+        }
+    }
+
+    return executable;
+}
+
 void SingleProcessShell::run()
 {
     while (true) {
@@ -279,124 +404,41 @@ void SingleProcessShell::run()
                 Constant::BUILTIN builtin_type = this->builtin(fd, processes[0]);
 
                 if (builtin_type == Constant::BUILTIN::EXIT) continue;
-                if (builtin_type == Constant::BUILTIN::NONE) { // TODO pid
+                if (builtin_type == Constant::BUILTIN::NONE) {
                     int in = fd, out = fd;
-                    bool executable = true;
+                    int user_pipe_index = -1;
 
-                    if (processes.front().type(Constant::IOTARGET::IN) == Constant::IO::U_PIPE) {
-                        int source_id = processes.front().n(Constant::IOTARGET::IN);
-
-                        if (this->client_map.find(source_id) == this->client_map.end()) {
-                            executable = false;
-
-                            stringstream ss;
-                            ss << "*** Error: user #" << source_id << " does not exist yet. ***" << '\n';
-
-                            write(fd, ss.str().c_str(), ss.str().length());
-                        }
-                        else {
-                            bool pipe_exist = false;
-                            int id = this->shell_map[fd].id;
-
-                            for (int i = this->client_map[id].user_pipes.size() - 1; i >= 0; i--) {
-                                if (this->client_map[id].user_pipes[i].n == source_id) {
-                                    in = this->client_map[id].user_pipes[i].fd[0];
-
-                                    close(this->client_map[id].user_pipes[i].fd[1]);
-                                    this->client_map[id].user_pipes.erase(this->client_map[id].user_pipes.begin() + i);
-
-                                    pipe_exist = true;
-                                    break;
-                                }
-                            }
-
-                            if (pipe_exist) {
-                                stringstream ss;
-                                ss << "*** " << this->client_map[source_id].name << " (#" << source_id << ") just received from "
-                                   << this->client_map[id].name << " (#" << id << ") by \'" << buffer << "\' ***" << '\n';
-
-                                this->_yell(ss.str());
-                            }
-                            else {
-                                executable = false;
-
-                                stringstream ss;
-                                ss << "*** Error: the pipe #" << source_id << "->#" << id << " does not exist yet. ***" << '\n';
-
-                                write(fd, ss.str().c_str(), ss.str().length());
-                            }
-                        }
-                    }
-
-                    if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::U_PIPE) {
-                        int target_id = processes.back().n(Constant::IOTARGET::OUT);
-
-                        if (this->client_map.find(target_id) == this->client_map.end()) {
-                            executable = false;
-
-                            stringstream ss;
-                            ss << "*** Error: user #" << target_id << " does not exist yet. ***" << '\n';
-
-                            write(fd, ss.str().c_str(), ss.str().length());
-                        }
-                        else {
-                            bool pipe_exist = false;
-                            int id = this->shell_map[fd].id;
-
-                            for (auto user_pipe : this->client_map[target_id].user_pipes) {
-                                if (user_pipe.n == id) {
-                                    stringstream ss;
-                                    ss << "*** Error: the pipe #" << id << "->#" << target_id << " already exists. ***" << '\n';
-
-                                    write(fd, ss.str().c_str(), ss.str().length());
-
-                                    pipe_exist = true;
-                                    break;
-                                }
-                            }
-
-                            if (pipe_exist) {
-                                executable = false;
-                            }
-                            else {
-                                int pipe_fd[2];
-
-                                if (pipe(pipe_fd) < 0) {
-                                    cerr << "Pipe cannot be initialized" << '\n';
-
-                                    exit(EXIT_FAILURE);
-                                }
-
-                                out = pipe_fd[1];
-
-                                PipeElement pipe_element;
-                                pipe_element.fd[0] = pipe_fd[0];
-                                pipe_element.fd[1] = pipe_fd[1];
-                                pipe_element.n = this->shell_map[fd].id;
-
-                                this->client_map[target_id].user_pipes.push_back(pipe_element);
-
-                                stringstream ss;
-                                ss << "*** " << this->client_map[id].name << " (#" << id << ") just piped \'"
-                                   << buffer << "\' to " << this->client_map[target_id].name << " (#" << target_id << ") ***" << '\n';
-
-                                this->_yell(ss.str());
-                            }
-                        }
-                    }
-
-                    if (executable) {
+                    if (this->get_pipe(fd, in, out, user_pipe_index, buffer)) {
                         this->shell_map[fd].shell.set(Constant::IOTARGET::IN, in);
                         this->shell_map[fd].shell.set(Constant::IOTARGET::OUT, out);
 
-                        this->shell_map[fd].shell.run(processes);
+                        pid_t child_pid = this->shell_map[fd].shell.run(processes);
+
+                        if (processes.front().type(Constant::IOTARGET::IN) == Constant::IO::U_PIPE) {
+                            int id = this->shell_map[fd].id;
+
+                            for (auto pid : this->client_map[id].user_pipes[user_pipe_index].pids) {
+                                pid_t wpid;
+                                while (true) {
+                                    wpid = waitpid(pid, NULL, WNOHANG);
+
+                                    if (wpid == pid) break;
+                                }
+                            }
+
+                            this->client_map[id].user_pipes[user_pipe_index].pids.clear();
+                            this->client_map[id].user_pipes.erase(this->client_map[id].user_pipes.begin() + user_pipe_index);
+                        }
+
+                        if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::U_PIPE) {
+                            int target_id = processes.back().n(Constant::IOTARGET::OUT);
+
+                            this->client_map[target_id].user_pipes.back().pids.push_back(child_pid);
+                        }
 
                         if (in != fd) {
                             close(in);
                         }
-
-                        this->shell_map[fd].shell.set(Constant::IOTARGET::IN, fd);
-                        this->shell_map[fd].shell.set(Constant::IOTARGET::OUT, fd);
                     }
                 }
 

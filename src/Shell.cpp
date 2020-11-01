@@ -159,7 +159,7 @@ void Shell::set(Constant::IOTARGET target, int fd)
     }
 }
 
-void Shell::run(vector<Process>& processes)
+pid_t Shell::run(vector<Process>& processes)
 {
     int in, out;
     get_pipe(in, out, processes.back());
@@ -208,7 +208,14 @@ void Shell::run(vector<Process>& processes)
         pid_t wpid;
         Constant::IO io_type = processes.back().type(Constant::IOTARGET::OUT);
 
-        if (io_type != Constant::IO::N_PIPE) {
+        if (io_type == Constant::IO::U_PIPE) {
+            return pid;
+        }
+        else if (io_type == Constant::IO::N_PIPE) {
+            this->process_heap.back().pids.push_back(pid);
+            push_heap(this->process_heap.begin(), this->process_heap.end(), greater<PipeElement>());
+        }
+        else {
             this->_wait(pid);
 
             while (!this->recycle_heap.empty() && this->recycle_heap.front().n == 0) {
@@ -221,10 +228,6 @@ void Shell::run(vector<Process>& processes)
                 pop_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
                 this->recycle_heap.pop_back();
             }
-        }
-        else {
-            this->process_heap.back().pids.push_back(pid);
-            push_heap(this->process_heap.begin(), this->process_heap.end(), greater<PipeElement>());
         }
 
         for (int i = this->recycle_heap.size() - 1; i >= 0; i--) {
@@ -244,6 +247,8 @@ void Shell::run(vector<Process>& processes)
             push_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
         }
     }
+
+    return -1;
 }
 
 void Shell::run()
@@ -264,8 +269,8 @@ void Shell::run()
         Constant::BUILTIN builtin_type = processes[0].builtin();
 
         if (builtin_type == Constant::BUILTIN::EXIT) break;
-        if (builtin_type != Constant::BUILTIN::NONE) continue;
-
-        this->run(processes);
+        if (builtin_type == Constant::BUILTIN::NONE) {
+            this->run(processes);
+        }
     }
 }
