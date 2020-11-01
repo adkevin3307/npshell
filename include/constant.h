@@ -9,6 +9,7 @@ namespace Constant {
 
     enum IO {
         STANDARD,
+        PIPE,
         N_PIPE,
         U_PIPE,
         FILE
