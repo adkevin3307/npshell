@@ -40,7 +40,7 @@ void Command::parse_process(string buffer)
     smatch string_match;
 
     this->_commands.clear();
-    buffer = this->trim(buffer);
+    buffer = Command::trim(buffer);
 
     while (regex_search(buffer, string_match, this->process_regex)) {
         string sub_string = this->trim(string_match[0]);
@@ -48,7 +48,7 @@ void Command::parse_process(string buffer)
         this->_commands.push_back(sub_string);
         this->_histories.push_back(sub_string);
 
-        buffer = this->trim(string_match.suffix().str());
+        buffer = Command::trim(string_match.suffix().str());
         if (buffer.length() == 0) break;
     }
 }
@@ -101,7 +101,7 @@ void Command::parse_argument()
                 process.add(string_match[7]);
             }
 
-            command = this->trim(string_match.suffix().str());
+            command = Command::trim(string_match.suffix().str());
             if (command.length() == 0) break;
         }
 

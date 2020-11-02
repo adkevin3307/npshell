@@ -80,8 +80,6 @@ void SingleProcessShell::welcome_message(int fd)
 
 bool SingleProcessShell::getline(int fd, string& s)
 {
-    Command command;
-
     while (true) {
         char c;
         int count = read(fd, &c, 1);
@@ -98,7 +96,7 @@ bool SingleProcessShell::getline(int fd, string& s)
         }
     }
 
-    s = command.trim(s);
+    s = Command::trim(s);
 
     return true;
 }
@@ -242,12 +240,12 @@ Constant::BUILTIN SingleProcessShell::builtin(int fd, string buffer, Process pro
                     stringstream ss;
                     ss << buffer;
 
-                    char space;
                     string trash;
-                    ss >> trash >> trash >> space;
+                    ss >> trash >> trash;
 
                     string text;
                     std::getline(ss, text);
+                    text = Command::trim(text);
 
                     string s = "*** " + this->client_map[this->shell_map[fd].id].name + " told you ***: " + text + "\n";
 
@@ -269,12 +267,12 @@ Constant::BUILTIN SingleProcessShell::builtin(int fd, string buffer, Process pro
                 stringstream ss;
                 ss << buffer;
 
-                char space;
                 string trash;
-                ss >> trash >> space;
+                ss >> trash;
 
                 string text;
                 std::getline(ss, text);
+                text = Command::trim(text);
 
                 string s = "*** " + this->client_map[this->shell_map[fd].id].name + " yelled ***: " + text + "\n";
 

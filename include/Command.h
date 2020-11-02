@@ -23,7 +23,7 @@ public:
     Command();
     ~Command();
 
-    string trim(string s);
+    static string trim(string s);
     vector<Process> parse(string buffer);
     vector<string> histories();
 };
