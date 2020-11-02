@@ -35,6 +35,7 @@ SingleProcessShell::SingleProcessShell(int port)
     this->fds_amount = getdtablesize();
 
     FD_ZERO(&(this->active_fds));
+    FD_SET(STDIN_FILENO, &(this->active_fds));
     FD_SET(this->socket_fd, &(this->active_fds));
 }
 
@@ -422,10 +423,17 @@ void SingleProcessShell::run()
             cerr << "Server: select error" << '\n';
         }
 
+        if (FD_ISSET(STDIN_FILENO, &(this->read_fds))) {
+            string s;
+            if (!std::getline(cin, s)) break;
+
+            continue;
+        }
+
         this->_login();
 
         for (int fd = 0; fd < this->fds_amount; fd++) {
-            if (fd != this->socket_fd && FD_ISSET(fd, &(this->read_fds))) {
+            if (fd != STDIN_FILENO && fd != this->socket_fd && FD_ISSET(fd, &(this->read_fds))) {
                 string buffer;
 
                 if (!this->getline(fd, buffer)) {
