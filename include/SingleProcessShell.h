@@ -49,7 +49,7 @@ private:
     void _who(int fd);
     void _yell(string s);
     void _name(int fd, string s);
-    Constant::BUILTIN builtin(int fd, Process process);
+    Constant::BUILTIN builtin(int fd, string buffer, Process process);
     bool get_pipe(int fd, int& in, int& out, int& user_pipe_index, string buffer);
 
 public:

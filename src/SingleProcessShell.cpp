@@ -217,7 +217,7 @@ void SingleProcessShell::_name(int fd, string name)
     this->_yell(s);
 }
 
-Constant::BUILTIN SingleProcessShell::builtin(int fd, Process process)
+Constant::BUILTIN SingleProcessShell::builtin(int fd, string buffer, Process process)
 {
     string error_message = "Invalid arguments\n";
     Constant::BUILTIN builtin_type = process.builtin(fd, fd, fd);
@@ -239,10 +239,17 @@ Constant::BUILTIN SingleProcessShell::builtin(int fd, Process process)
                 int id = atoi(process[1].c_str());
 
                 if (this->client_map.find(id) != this->client_map.end()) {
-                    string s = "*** " + this->client_map[this->shell_map[fd].id].name + " told you ***: ";
-                    for (size_t i = 1; i < process.size(); i++) {
-                        s += process[i] + (i == process.size() - 1 ? '\n' : ' ');
-                    }
+                    stringstream ss;
+                    ss << buffer;
+
+                    char space;
+                    string trash;
+                    ss >> trash >> trash >> space;
+
+                    string text;
+                    std::getline(ss, text);
+
+                    string s = "*** " + this->client_map[this->shell_map[fd].id].name + " told you ***: " + text + "\n";
 
                     write(this->client_map[id].fd, s.c_str(), s.length());
                 }
@@ -259,10 +266,17 @@ Constant::BUILTIN SingleProcessShell::builtin(int fd, Process process)
                 write(fd, error_message.c_str(), error_message.length());
             }
             else {
-                string s = "*** " + this->client_map[this->shell_map[fd].id].name + " yelled ***: ";
-                for (size_t i = 1; i < process.size(); i++) {
-                    s += process[i] + (i == process.size() - 1 ? '\n' : ' ');
-                }
+                stringstream ss;
+                ss << buffer;
+
+                char space;
+                string trash;
+                ss >> trash >> space;
+
+                string text;
+                std::getline(ss, text);
+
+                string s = "*** " + this->client_map[this->shell_map[fd].id].name + " yelled ***: " + text + "\n";
 
                 this->_yell(s);
             }
@@ -425,7 +439,7 @@ void SingleProcessShell::run()
 
                 this->shell_map[fd].shell.next_line();
 
-                Constant::BUILTIN builtin_type = this->builtin(fd, processes[0]);
+                Constant::BUILTIN builtin_type = this->builtin(fd, buffer, processes[0]);
 
                 if (builtin_type == Constant::BUILTIN::EXIT) continue;
                 if (builtin_type == Constant::BUILTIN::NONE) {
