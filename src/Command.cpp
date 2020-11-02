@@ -8,7 +8,7 @@ using namespace std;
 
 Command::Command()
 {
-    this->process_regex = regex(R"([^|!]+((\|\d+|!\d+)\s*$|\||$))");
+    this->process_regex = regex(R"([^|]+((\||!)\d+\s*$|\||$))");
     this->argument_regex = regex(R"((\||!|>|<)(\d+)|(\|)|(>\s+)(\S+)|(<\s+)?(\S+))");
 }
 
@@ -63,27 +63,25 @@ void Command::parse_argument()
         Process process;
 
         while (regex_search(command, string_match, this->argument_regex)) {
-            if (string_match[1].length() > 0) {
+            if (string_match[2].length() > 0) {
                 int n = stoi(string_match[2]);
 
-                if (string_match[1] == '|') {
-                    process.set(Constant::IOTARGET::OUT, Constant::IO::N_PIPE);
-                    process.set(Constant::IOTARGET::OUT, n);
-                }
-                else if (string_match[1] == '!') {
-                    process.set(Constant::IOTARGET::OUT, Constant::IO::N_PIPE);
-                    process.set(Constant::IOTARGET::OUT, n);
-
-                    process.set(Constant::IOTARGET::ERR, Constant::IO::N_PIPE);
-                    process.set(Constant::IOTARGET::ERR, n);
-                }
-                else if (string_match[1] == '>') {
+                if (string_match[1] == '>') {
                     process.set(Constant::IOTARGET::OUT, Constant::IO::U_PIPE);
                     process.set(Constant::IOTARGET::OUT, n);
                 }
                 else if (string_match[1] == '<') {
                     process.set(Constant::IOTARGET::IN, Constant::IO::U_PIPE);
                     process.set(Constant::IOTARGET::IN, n);
+                }
+                else {
+                    process.set(Constant::IOTARGET::OUT, Constant::IO::N_PIPE);
+                    process.set(Constant::IOTARGET::OUT, n);
+
+                    if (string_match[1] == '!') {
+                        process.set(Constant::IOTARGET::ERR, Constant::IO::N_PIPE);
+                        process.set(Constant::IOTARGET::ERR, n);
+                    }
                 }
             }
             else if (string_match[3].length() > 0) {

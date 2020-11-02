@@ -333,8 +333,8 @@ bool SingleProcessShell::get_pipe(int fd, int& in, int& out, int& user_pipe_inde
 
             if (pipe_exist) {
                 stringstream ss;
-                ss << "*** " << this->client_map[source_id].name << " (#" << source_id << ") just received from "
-                   << this->client_map[id].name << " (#" << id << ") by \'" << buffer << "\' ***" << '\n';
+                ss << "*** " << this->client_map[id].name << " (#" << id << ") just received from "
+                   << this->client_map[source_id].name << " (#" << source_id << ") by \'" << buffer << "\' ***" << '\n';
 
                 this->_yell(ss.str());
             }
@@ -433,7 +433,11 @@ void SingleProcessShell::run()
                 Command command;
                 vector<Process> processes = command.parse(buffer);
 
-                if (processes.empty()) continue;
+                if (processes.empty()) {
+                    write(fd, "% ", 2);
+
+                    continue;
+                }
 
                 this->shell_map[fd].shell.next_line();
 
