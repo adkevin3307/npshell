@@ -3,6 +3,8 @@
 #include <cstring>
 #include <sstream>
 #include <algorithm>
+#include <stdexcept>
+#include <type_traits>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -143,9 +145,18 @@ int Process::n(Constant::IOTARGET target)
     }
 }
 
-string Process::operator[](int index)
+size_t Process::size()
 {
-    return this->command[index];
+    return this->command.size();
+}
+
+string Process::operator[](size_t index)
+{
+    if (index < this->command.size()) {
+        return this->command[index];
+    }
+
+    throw out_of_range("Command index out of range");
 }
 
 Constant::BUILTIN Process::builtin(int in, int out, int err)

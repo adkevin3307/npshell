@@ -71,9 +71,9 @@ SingleProcessShell::ClientInformation::~ClientInformation()
 void SingleProcessShell::welcome_message(int fd)
 {
     string message =
-        "***************************************\n"
-        "** Welcome to the information server **\n"
-        "***************************************\n";
+        "****************************************\n"
+        "** Welcome to the information server. **\n"
+        "****************************************\n";
 
     write(fd, message.c_str(), message.length());
 }
@@ -115,7 +115,7 @@ void SingleProcessShell::_login()
             cerr << "Server: accept error" << '\n';
         }
 
-        int id = 0;
+        int id = 1;
         for (auto it = this->client_map.begin(); it != this->client_map.end(); it++, id++) {
             if (it->first != id) break;
         }
@@ -219,6 +219,7 @@ void SingleProcessShell::_name(int fd, string name)
 
 Constant::BUILTIN SingleProcessShell::builtin(int fd, Process process)
 {
+    string error_message = "Invalid arguments\n";
     Constant::BUILTIN builtin_type = process.builtin(fd, fd, fd);
 
     switch (builtin_type) {
@@ -231,27 +232,50 @@ Constant::BUILTIN SingleProcessShell::builtin(int fd, Process process)
 
             break;
         case Constant::BUILTIN::TELL: {
-            int id = atoi(process[1].c_str());
-
-            if (this->client_map.find(id) != this->client_map.end()) {
-                string s = "*** " + this->client_map[this->shell_map[fd].id].name + " told you ***: " + process[2] + "\n";
-                write(this->client_map[id].fd, s.c_str(), s.length());
+            if (process.size() < 3) {
+                write(fd, error_message.c_str(), error_message.length());
             }
             else {
-                string s = "*** Error: user #" + to_string(id) + " does not exist yet. ***\n";
-                write(fd, s.c_str(), s.length());
+                int id = atoi(process[1].c_str());
+
+                if (this->client_map.find(id) != this->client_map.end()) {
+                    string s = "*** " + this->client_map[this->shell_map[fd].id].name + " told you ***: ";
+                    for (size_t i = 1; i < process.size(); i++) {
+                        s += process[i] + (i == process.size() - 1 ? '\n' : ' ');
+                    }
+
+                    write(this->client_map[id].fd, s.c_str(), s.length());
+                }
+                else {
+                    string s = "*** Error: user #" + to_string(id) + " does not exist yet. ***\n";
+                    write(fd, s.c_str(), s.length());
+                }
             }
 
             break;
         }
         case Constant::BUILTIN::YELL: {
-            string s = "*** " + this->client_map[this->shell_map[fd].id].name + " yelled ***: " + process[1] + '\n';
-            this->_yell(s);
+            if (process.size() < 2) {
+                write(fd, error_message.c_str(), error_message.length());
+            }
+            else {
+                string s = "*** " + this->client_map[this->shell_map[fd].id].name + " yelled ***: ";
+                for (size_t i = 1; i < process.size(); i++) {
+                    s += process[i] + (i == process.size() - 1 ? '\n' : ' ');
+                }
+
+                this->_yell(s);
+            }
 
             break;
         }
         case Constant::BUILTIN::NAME:
-            this->_name(fd, process[1]);
+            if (process.size() < 2) {
+                write(fd, error_message.c_str(), error_message.length());
+            }
+            else {
+                this->_name(fd, process[1]);
+            }
 
             break;
         default:

@@ -41,7 +41,9 @@ public:
 
     Constant::IO type(Constant::IOTARGET target);
     int n(Constant::IOTARGET target);
-    string operator[](int index);
+
+    size_t size();
+    string operator[](size_t index);
 
     Constant::BUILTIN builtin(int in, int out, int err);
     void add(string argument);
