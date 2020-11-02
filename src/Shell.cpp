@@ -203,6 +203,8 @@ pid_t Shell::run(vector<Process>& processes)
         }
 
         processes.back().exec(in, out, false);
+
+        exit(EXIT_SUCCESS);
     }
     else {
         pid_t wpid;
@@ -228,6 +230,8 @@ pid_t Shell::run(vector<Process>& processes)
                 pop_heap(this->recycle_heap.begin(), this->recycle_heap.end(), greater<PipeElement>());
                 this->recycle_heap.pop_back();
             }
+
+            if (processes.front().type(Constant::IOTARGET::IN) == Constant::IO::U_PIPE) return 0;
         }
 
         for (int i = this->recycle_heap.size() - 1; i >= 0; i--) {

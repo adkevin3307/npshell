@@ -454,10 +454,12 @@ void SingleProcessShell::run()
 
                         pid_t child_pid = this->shell_map[fd].shell.run(processes);
 
-                        if (processes.front().type(Constant::IOTARGET::IN) == Constant::IO::U_PIPE) {
+                        if (processes.front().type(Constant::IOTARGET::IN) == Constant::IO::U_PIPE && child_pid == 0) {
                             int id = this->shell_map[fd].id;
 
                             for (auto pid : this->client_map[id].user_pipes[user_pipe_index].pids) {
+                                kill(pid, SIGINT);
+
                                 pid_t wpid;
                                 while (true) {
                                     wpid = waitpid(pid, NULL, WNOHANG);
@@ -470,7 +472,7 @@ void SingleProcessShell::run()
                             this->client_map[id].user_pipes.erase(this->client_map[id].user_pipes.begin() + user_pipe_index);
                         }
 
-                        if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::U_PIPE) {
+                        if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::U_PIPE && child_pid > 0) {
                             int target_id = processes.back().n(Constant::IOTARGET::OUT);
 
                             this->client_map[target_id].user_pipes.back().pids.push_back(child_pid);
