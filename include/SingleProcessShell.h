@@ -28,7 +28,7 @@ private:
     private:
         int fd;
         string name, ip, port;
-        vector<PipeElement> user_pipes;
+        map<int, PipeElement> user_pipes;
 
     public:
         ClientInformation();
@@ -51,7 +51,7 @@ private:
     void _yell(string s);
     void _name(int fd, string s);
     Constant::BUILTIN builtin(int fd, string buffer, Process process);
-    bool get_pipe(int fd, int& in, int& out, int& user_pipe_index, string buffer);
+    bool get_pipe(int fd, int& in, int& out, string buffer);
 
 public:
     SingleProcessShell(int port);

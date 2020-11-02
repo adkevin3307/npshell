@@ -157,19 +157,17 @@ void SingleProcessShell::_logout(int fd)
     this->shell_map.erase(fd);
 
     for (auto user_pipe : this->client_map[id].user_pipes) {
-        close(user_pipe.fd[0]);
-        close(user_pipe.fd[1]);
+        close(user_pipe.second.fd[0]);
+        close(user_pipe.second.fd[1]);
     }
     this->client_map.erase(id);
 
     for (auto it = this->client_map.begin(); it != this->client_map.end(); it++) {
-        for (int i = it->second.user_pipes.size() - 1; i >= 0; i--) {
-            if (it->second.user_pipes[i].n == id) {
-                close(it->second.user_pipes[i].fd[0]);
-                close(it->second.user_pipes[i].fd[1]);
+        if (it->second.user_pipes.find(id) != it->second.user_pipes.end()) {
+            close(it->second.user_pipes[id].fd[0]);
+            close(it->second.user_pipes[id].fd[1]);
 
-                it->second.user_pipes.erase(it->second.user_pipes.begin() + i);
-            }
+            it->second.user_pipes.erase(id);
         }
     }
 }
@@ -308,7 +306,7 @@ Constant::BUILTIN SingleProcessShell::builtin(int fd, string buffer, Process pro
     return builtin_type;
 }
 
-bool SingleProcessShell::get_pipe(int fd, int& in, int& out, int& user_pipe_index, string buffer)
+bool SingleProcessShell::get_pipe(int fd, int& in, int& out, string buffer)
 {
     Command command;
     vector<Process> processes = command.parse(buffer);
@@ -330,16 +328,11 @@ bool SingleProcessShell::get_pipe(int fd, int& in, int& out, int& user_pipe_inde
             bool pipe_exist = false;
             int id = this->shell_map[fd].id;
 
-            for (int i = this->client_map[id].user_pipes.size() - 1; i >= 0; i--) {
-                if (this->client_map[id].user_pipes[i].n == source_id) {
-                    close(this->client_map[id].user_pipes[i].fd[1]);
-                    in = this->client_map[id].user_pipes[i].fd[0];
+            if (this->client_map[id].user_pipes.find(source_id) != this->client_map[id].user_pipes.end()) {
+                close(this->client_map[id].user_pipes[source_id].fd[1]);
+                in = this->client_map[id].user_pipes[source_id].fd[0];
 
-                    pipe_exist = true;
-                    user_pipe_index = i;
-
-                    break;
-                }
+                pipe_exist = true;
             }
 
             if (pipe_exist) {
@@ -375,16 +368,13 @@ bool SingleProcessShell::get_pipe(int fd, int& in, int& out, int& user_pipe_inde
             bool pipe_exist = false;
             int id = this->shell_map[fd].id;
 
-            for (auto user_pipe : this->client_map[target_id].user_pipes) {
-                if (user_pipe.n == id) {
-                    stringstream ss;
-                    ss << "*** Error: the pipe #" << id << "->#" << target_id << " already exists. ***" << '\n';
+            if (this->client_map[target_id].user_pipes.find(id) != this->client_map[target_id].user_pipes.end()) {
+                stringstream ss;
+                ss << "*** Error: the pipe #" << id << "->#" << target_id << " already exists. ***" << '\n';
 
-                    write(fd, ss.str().c_str(), ss.str().length());
+                write(fd, ss.str().c_str(), ss.str().length());
 
-                    pipe_exist = true;
-                    break;
-                }
+                pipe_exist = true;
             }
 
             if (pipe_exist) {
@@ -406,7 +396,7 @@ bool SingleProcessShell::get_pipe(int fd, int& in, int& out, int& user_pipe_inde
                 pipe_element.fd[1] = pipe_fd[1];
                 pipe_element.n = this->shell_map[fd].id;
 
-                this->client_map[target_id].user_pipes.push_back(pipe_element);
+                this->client_map[target_id].user_pipes[id] = pipe_element;
 
                 stringstream ss;
                 ss << "*** " << this->client_map[id].name << " (#" << id << ") just piped \'"
@@ -461,9 +451,8 @@ void SingleProcessShell::run()
                 if (builtin_type == Constant::BUILTIN::EXIT) continue;
                 if (builtin_type == Constant::BUILTIN::NONE) {
                     int in = fd, out = fd;
-                    int user_pipe_index = -1;
 
-                    if (this->get_pipe(fd, in, out, user_pipe_index, buffer)) {
+                    if (this->get_pipe(fd, in, out, buffer)) {
                         this->shell_map[fd].shell.set(Constant::IOTARGET::IN, in);
                         this->shell_map[fd].shell.set(Constant::IOTARGET::OUT, out);
 
@@ -471,8 +460,9 @@ void SingleProcessShell::run()
 
                         if (processes.front().type(Constant::IOTARGET::IN) == Constant::IO::U_PIPE && child_pid == 0) {
                             int id = this->shell_map[fd].id;
+                            int source_id = processes.front().n(Constant::IOTARGET::IN);
 
-                            for (auto pid : this->client_map[id].user_pipes[user_pipe_index].pids) {
+                            for (auto pid : this->client_map[id].user_pipes[source_id].pids) {
                                 kill(pid, SIGINT);
 
                                 pid_t wpid;
@@ -483,14 +473,15 @@ void SingleProcessShell::run()
                                 }
                             }
 
-                            this->client_map[id].user_pipes[user_pipe_index].pids.clear();
-                            this->client_map[id].user_pipes.erase(this->client_map[id].user_pipes.begin() + user_pipe_index);
+                            this->client_map[id].user_pipes[source_id].pids.clear();
+                            this->client_map[id].user_pipes.erase(source_id);
                         }
 
                         if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::U_PIPE && child_pid > 0) {
+                            int id = this->shell_map[fd].id;
                             int target_id = processes.back().n(Constant::IOTARGET::OUT);
 
-                            this->client_map[target_id].user_pipes.back().pids.push_back(child_pid);
+                            this->client_map[target_id].user_pipes[id].pids.push_back(child_pid);
                         }
 
                         if (in != fd) {
