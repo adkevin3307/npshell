@@ -42,6 +42,7 @@ private:
     fd_set read_fds, active_fds;
     map<int, ClientShell> shell_map;
     map<int, ClientInformation> client_map;
+    vector<PipeElement> recycle_pipes;
 
     void welcome_message(int fd);
     bool getline(int fd, string& s);

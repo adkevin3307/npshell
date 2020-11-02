@@ -333,6 +333,9 @@ bool SingleProcessShell::get_pipe(int fd, int& in, int& out, string buffer)
                 in = this->client_map[id].user_pipes[source_id].fd[0];
 
                 pipe_exist = true;
+
+                this->recycle_pipes.push_back(this->client_map[id].user_pipes[source_id]);
+                this->client_map[id].user_pipes.erase(source_id);
             }
 
             if (pipe_exist) {
@@ -459,22 +462,22 @@ void SingleProcessShell::run()
                         pid_t child_pid = this->shell_map[fd].shell.run(processes);
 
                         if (processes.front().type(Constant::IOTARGET::IN) == Constant::IO::U_PIPE && child_pid == 0) {
-                            int id = this->shell_map[fd].id;
-                            int source_id = processes.front().n(Constant::IOTARGET::IN);
+                            for (auto element : this->recycle_pipes) {
+                                for (auto pid : element.pids) {
+                                    kill(pid, SIGINT);
 
-                            for (auto pid : this->client_map[id].user_pipes[source_id].pids) {
-                                kill(pid, SIGINT);
+                                    pid_t wpid;
+                                    while (true) {
+                                        wpid = waitpid(pid, NULL, WNOHANG);
 
-                                pid_t wpid;
-                                while (true) {
-                                    wpid = waitpid(pid, NULL, WNOHANG);
-
-                                    if (wpid == pid) break;
+                                        if (wpid == pid) break;
+                                    }
                                 }
+
+                                element.pids.clear();
                             }
 
-                            this->client_map[id].user_pipes[source_id].pids.clear();
-                            this->client_map[id].user_pipes.erase(source_id);
+                            this->recycle_pipes.clear();
                         }
 
                         if (processes.back().type(Constant::IOTARGET::OUT) == Constant::IO::U_PIPE && child_pid > 0) {
