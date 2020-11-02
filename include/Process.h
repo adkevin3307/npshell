@@ -13,9 +13,9 @@ class Process {
 private:
     class IOManagement {
     public:
-        Constant::IO type;
         int n;
         string file;
+        Constant::IO type;
 
         IOManagement();
         ~IOManagement();
