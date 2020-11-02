@@ -219,7 +219,7 @@ void SingleProcessShell::_name(int fd, string name)
 
 Constant::BUILTIN SingleProcessShell::builtin(int fd, Process process)
 {
-    Constant::BUILTIN builtin_type = process.builtin();
+    Constant::BUILTIN builtin_type = process.builtin(fd, fd, fd);
 
     switch (builtin_type) {
         case Constant::BUILTIN::EXIT:

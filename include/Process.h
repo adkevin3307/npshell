@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <unistd.h>
 
 #include "constant.h"
 
@@ -25,7 +26,7 @@ private:
 
     void _cd(string target);
     void _setenv(string target, string source);
-    void _printenv(string target);
+    void _printenv(int out, string target);
 
     void handle_io(int in, int out);
     void exec_check();
@@ -42,7 +43,7 @@ public:
     int n(Constant::IOTARGET target);
     string operator[](int index);
 
-    Constant::BUILTIN builtin();
+    Constant::BUILTIN builtin(int in, int out, int err);
     void add(string argument);
     void exec(int in, int out, bool enable_fork = true);
 };

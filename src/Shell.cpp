@@ -19,7 +19,7 @@ Shell::Shell(int stdin_no, int stdout_no, int stderr_no)
     env.add("PATH");
     env.add("bin:.");
 
-    env.builtin();
+    env.builtin(this->stdin_no, this->stdout_no, this->stderr_no);
 
     this->max_child_amount = sysconf(_SC_CHILD_MAX);
     make_heap(this->process_heap.begin(), this->process_heap.end(), greater<PipeElement>());
@@ -266,7 +266,7 @@ void Shell::run()
 
         this->next_line();
 
-        Constant::BUILTIN builtin_type = processes[0].builtin();
+        Constant::BUILTIN builtin_type = processes[0].builtin(this->stdin_no, this->stdout_no, this->stderr_no);
 
         if (builtin_type == Constant::BUILTIN::EXIT) break;
         if (builtin_type == Constant::BUILTIN::NONE) {

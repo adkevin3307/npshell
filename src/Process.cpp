@@ -1,9 +1,9 @@
 #include "Process.h"
 
 #include <cstring>
+#include <sstream>
 #include <algorithm>
 #include <fcntl.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 
@@ -24,6 +24,7 @@ Process::~Process()
         }
 
         delete[] this->args;
+        this->args = NULL;
     }
 }
 
@@ -48,10 +49,13 @@ void Process::_setenv(string target, string source)
     setenv(target.c_str(), source.c_str(), 1);
 }
 
-void Process::_printenv(string target)
+void Process::_printenv(int out, string target)
 {
     if (getenv(target.c_str())) {
-        cout << getenv(target.c_str()) << '\n';
+        stringstream ss;
+        ss << getenv(target.c_str()) << '\n';
+
+        write(out, ss.str().c_str(), ss.str().length());
     }
 }
 
@@ -144,8 +148,10 @@ string Process::operator[](int index)
     return this->command[index];
 }
 
-Constant::BUILTIN Process::builtin()
+Constant::BUILTIN Process::builtin(int in, int out, int err)
 {
+    string error_message = "Invalid arguments\n";
+
     if (this->command[0] == "exit") {
         return Constant::BUILTIN::EXIT;
     }
@@ -159,7 +165,7 @@ Constant::BUILTIN Process::builtin()
     }
     else if (this->command[0] == "setenv") {
         if (this->command.size() < 3) {
-            cerr << "Invalid arguments" << '\n';
+            write(err, error_message.c_str(), error_message.length());
         }
         else {
             this->_setenv(this->command[1], this->command[2]);
@@ -169,10 +175,10 @@ Constant::BUILTIN Process::builtin()
     }
     else if (this->command[0] == "printenv") {
         if (this->command.size() < 2) {
-            cerr << "Invalid arguments" << '\n';
+            write(err, error_message.c_str(), error_message.length());
         }
         else {
-            this->_printenv(this->command[1]);
+            this->_printenv(out, this->command[1]);
         }
 
         return Constant::BUILTIN::PRINTENV;
@@ -182,7 +188,7 @@ Constant::BUILTIN Process::builtin()
     }
     else if (this->command[0] == "tell") {
         if (this->command.size() < 3) {
-            cerr << "Invalid arguments" << '\n';
+            write(err, error_message.c_str(), error_message.length());
 
             return Constant::BUILTIN::NONE;
         }
@@ -191,7 +197,7 @@ Constant::BUILTIN Process::builtin()
     }
     else if (this->command[0] == "yell") {
         if (this->command.size() < 2) {
-            cerr << "Invalid arguments" << '\n';
+            write(err, error_message.c_str(), error_message.length());
 
             return Constant::BUILTIN::NONE;
         }
@@ -200,7 +206,7 @@ Constant::BUILTIN Process::builtin()
     }
     else if (this->command[0] == "name") {
         if (this->command.size() < 2) {
-            cerr << "Invalid arguments" << '\n';
+            write(err, error_message.c_str(), error_message.length());
 
             return Constant::BUILTIN::NONE;
         }
