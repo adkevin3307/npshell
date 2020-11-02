@@ -121,6 +121,12 @@ void SingleProcessShell::_login()
         this->shell_map[client_socket_fd].id = id;
         this->shell_map[client_socket_fd].shell = Shell(client_socket_fd, client_socket_fd, client_socket_fd);
 
+        Process env;
+        env.add("setenv");
+        env.add("PATH");
+        env.add("bin:.");
+        this->shell_map[client_socket_fd].envs.push_back(env);
+
         string ip = inet_ntoa(client_addr.sin_addr);
         string port = to_string(ntohs(client_addr.sin_port));
 
@@ -147,12 +153,13 @@ void SingleProcessShell::_logout(int fd)
     string s = "*** User \'" + this->client_map[id].name + "\' left. ***\n";
     this->_yell(s);
 
+    this->shell_map[fd].envs.clear();
+    this->shell_map.erase(fd);
+
     for (auto user_pipe : this->client_map[id].user_pipes) {
         close(user_pipe.fd[0]);
         close(user_pipe.fd[1]);
     }
-
-    this->shell_map.erase(fd);
     this->client_map.erase(id);
 
     for (auto it = this->client_map.begin(); it != this->client_map.end(); it++) {
@@ -223,6 +230,10 @@ Constant::BUILTIN SingleProcessShell::builtin(int fd, string buffer, Process pro
     switch (builtin_type) {
         case Constant::BUILTIN::EXIT:
             this->_logout(fd);
+
+            break;
+        case Constant::BUILTIN::SETENV:
+            this->shell_map[fd].envs.push_back(process);
 
             break;
         case Constant::BUILTIN::WHO:
@@ -440,6 +451,10 @@ void SingleProcessShell::run()
                 }
 
                 this->shell_map[fd].shell.next_line();
+
+                for (auto env : this->shell_map[fd].envs) {
+                    env.builtin(fd, fd, fd);
+                }
 
                 Constant::BUILTIN builtin_type = this->builtin(fd, buffer, processes[0]);
 

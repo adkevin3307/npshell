@@ -15,6 +15,7 @@ private:
     private:
         int id;
         Shell shell;
+        vector<Process> envs;
 
     public:
         ClientShell();
