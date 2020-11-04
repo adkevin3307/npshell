@@ -24,6 +24,7 @@ namespace Constant {
         TELL,
         YELL,
         NAME,
-        NONE
+        NONE,
+        FAIL
     };
 };

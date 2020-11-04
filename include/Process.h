@@ -26,6 +26,7 @@ private:
 
     void _cd(string target);
     void _setenv(string target, string source);
+    void _unsetenv(string target);
     void _printenv(int out, string target);
 
     void handle_io(int in, int out);

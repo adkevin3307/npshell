@@ -51,6 +51,11 @@ void Process::_setenv(string target, string source)
     setenv(target.c_str(), source.c_str(), 1);
 }
 
+void Process::_unsetenv(string target)
+{
+    unsetenv(target.c_str());
+}
+
 void Process::_printenv(int out, string target)
 {
     if (getenv(target.c_str())) {
@@ -177,20 +182,22 @@ Constant::BUILTIN Process::builtin(int in, int out, int err)
     else if (this->command[0] == "setenv") {
         if (this->command.size() < 3) {
             write(err, error_message.c_str(), error_message.length());
+
+            return Constant::BUILTIN::FAIL;
         }
-        else {
-            this->_setenv(this->command[1], this->command[2]);
-        }
+
+        this->_setenv(this->command[1], this->command[2]);
 
         return Constant::BUILTIN::SETENV;
     }
     else if (this->command[0] == "printenv") {
         if (this->command.size() < 2) {
             write(err, error_message.c_str(), error_message.length());
+
+            return Constant::BUILTIN::FAIL;
         }
-        else {
-            this->_printenv(out, this->command[1]);
-        }
+
+        this->_printenv(out, this->command[1]);
 
         return Constant::BUILTIN::PRINTENV;
     }
@@ -201,7 +208,7 @@ Constant::BUILTIN Process::builtin(int in, int out, int err)
         if (this->command.size() < 3) {
             write(err, error_message.c_str(), error_message.length());
 
-            return Constant::BUILTIN::NONE;
+            return Constant::BUILTIN::FAIL;
         }
 
         return Constant::BUILTIN::TELL;
@@ -210,7 +217,7 @@ Constant::BUILTIN Process::builtin(int in, int out, int err)
         if (this->command.size() < 2) {
             write(err, error_message.c_str(), error_message.length());
 
-            return Constant::BUILTIN::NONE;
+            return Constant::BUILTIN::FAIL;
         }
 
         return Constant::BUILTIN::YELL;
@@ -219,7 +226,7 @@ Constant::BUILTIN Process::builtin(int in, int out, int err)
         if (this->command.size() < 2) {
             write(err, error_message.c_str(), error_message.length());
 
-            return Constant::BUILTIN::NONE;
+            return Constant::BUILTIN::FAIL;
         }
 
         return Constant::BUILTIN::NAME;
