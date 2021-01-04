@@ -1,5 +1,5 @@
-# Network Programming
-NCTuT Network Programming Course
+# NPShell
+NCTuT NPShell
 
 ## TODO
 - Single-Process Concurrent Server
